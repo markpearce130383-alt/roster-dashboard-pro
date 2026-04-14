@@ -54,3 +54,15 @@ Files safe to commit:
 File that should stay out of Git:
 
 - `supabase-config.js`
+
+## GitHub Pages
+
+This repo includes an `index.html` entry point so it can be published with GitHub Pages.
+
+For GitHub Pages, the live site must be able to load a committed public config file, so put your real Supabase project URL and anon public key into `supabase-config.example.js` before deploying.
+
+Important:
+
+- The Supabase anon key is safe for frontend use.
+- Never put the Supabase service role key into any committed file.
+- `supabase-config.js` can still stay local-only for your machine and will override the committed example locally.
