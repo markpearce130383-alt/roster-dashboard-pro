@@ -1,0 +1,1841 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roster Dashboard Pro</title>
+  <style>
+    :root {
+      --bg: #09111f;
+      --panel: rgba(12, 19, 33, 0.94);
+      --panel-2: #122033;
+      --border: #243449;
+      --text: #e8eef8;
+      --muted: #98a7bc;
+      --accent: #4cc9f0;
+      --good: #34d399;
+      --warn: #f59e0b;
+      --danger: #f87171;
+      --shadow: 0 16px 40px rgba(0,0,0,.28);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: linear-gradient(180deg, #08101d 0%, #101827 100%);
+      color: var(--text);
+    }
+    .wrap { max-width: 1750px; margin: 0 auto; padding: 18px; }
+    .topbar {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+    }
+    .hero { padding: 22px; }
+    .hero h1 { margin: 0 0 8px; font-size: 2rem; }
+    .hero p { margin: 0; color: var(--muted); line-height: 1.45; }
+    .controls { padding: 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+    label { display:block; color: var(--muted); font-size: .84rem; margin-bottom: 6px; }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: #091322;
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font: inherit;
+    }
+    button {
+      border: 1px solid var(--border);
+      background: #0b1424;
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      font: inherit;
+    }
+    button.primary { background: linear-gradient(90deg, #0ea5e9, #2563eb); }
+    button.good { background: linear-gradient(90deg, #10b981, #059669); }
+    button.warn { background: linear-gradient(90deg, #d97706, #b45309); }
+    button.ghost { background: transparent; }
+    textarea { min-height: 92px; resize: vertical; }
+    .control-grow { flex: 1 1 210px; min-width: 170px; }
+    .button-row { display:flex; gap:10px; flex-wrap:wrap; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .stat { padding: 16px 18px; }
+    .stat .label { color: var(--muted); font-size: .88rem; margin-bottom: 8px; }
+    .stat .value { font-size: 1.65rem; font-weight: 700; }
+    .main {
+      display: grid;
+      grid-template-columns: 470px 1fr;
+      gap: 16px;
+    }
+    .editor { padding: 18px; position: sticky; top: 12px; align-self: start; }
+    .editor h2, .calendar-panel h2 { margin: 0 0 14px; font-size: 1.18rem; }
+    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .grid1 { display:grid; grid-template-columns: 1fr; gap: 10px; }
+    .slot-wrap { display:flex; gap:8px; }
+    .slot-wrap select,
+    .slot-wrap input { flex: 1; }
+    .tiny-btn {
+      width: 42px; min-width: 42px; padding: 0;
+      display:flex; align-items:center; justify-content:center;
+      font-size: 1rem;
+    }
+    .helper { margin-top: 10px; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+    .calendar-panel { padding: 18px; }
+    .toolbar {
+      display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:end; margin-bottom:14px;
+    }
+    .toolbar-left, .toolbar-right { display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+    .weekday-row, .calendar-grid {
+      display:grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .weekday {
+      padding: 10px;
+      color: var(--muted);
+      font-size: .85rem;
+      text-align: center;
+    }
+    .day {
+      min-height: 220px;
+      background: #0a1322;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 10px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .day.empty { opacity: .23; min-height: 120px; }
+    .day.selected { outline: 2px solid var(--accent); }
+    .day.dimmed { opacity: .45; }
+    .day-top {
+      display:flex; justify-content:space-between; gap:8px; align-items:flex-start;
+    }
+    .day-num { font-weight:700; font-size:1rem; }
+    .day-sub { color: var(--muted); font-size: .74rem; }
+    .pill {
+      display:inline-block;
+      padding:4px 8px;
+      font-size: .7rem;
+      border-radius: 999px;
+      border: 1px solid rgba(76, 201, 240, .22);
+      color: #9ae6ff;
+      background: rgba(76, 201, 240, .14);
+      white-space: nowrap;
+    }
+    .line {
+      font-size: .78rem;
+      line-height: 1.35;
+      padding: 7px 8px;
+      border-radius: 11px;
+      background: rgba(36, 52, 73, .54);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .line strong { color: #d7e3f3; }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; }
+    .chip {
+      display:inline-flex; align-items:center; gap:6px;
+      padding:4px 8px; border-radius:999px;
+      font-size: .72rem; border:1px solid transparent;
+      background: rgba(148,163,184,.12);
+    }
+    .dot {
+      width: 9px; height: 9px; border-radius: 999px; flex: none;
+      border: 1px solid rgba(255,255,255,.18);
+    }
+    .day-footer { margin-top:auto; display:flex; flex-wrap:wrap; gap:6px; }
+    .tag { font-size:.7rem; padding:4px 8px; border-radius:999px; }
+    .holiday { background: rgba(248,113,113,.14); color:#fecaca; }
+    .meeting { background: rgba(245,158,11,.15); color:#fde68a; }
+    .feed { background: rgba(52,211,153,.15); color:#bbf7d0; }
+    .small { font-size: .8rem; }
+    .muted { color: var(--muted); }
+    .legend { display:flex; gap:8px; flex-wrap:wrap; margin-top: 10px; }
+    .legend .chip { cursor: pointer; }
+    .legend .chip input[type="color"] { width: 24px; height: 24px; padding: 0; border: none; background: transparent; cursor: pointer; }
+    .section-title { margin: 14px 0 8px; font-size: .88rem; color: var(--muted); }
+    .staff-manage {
+      display:grid; grid-template-columns: 1fr auto; gap: 10px; margin-bottom: 10px;
+    }
+    .small-button-row { display:flex; gap:10px; flex-wrap:wrap; }
+    .month-year-picker { display:grid; grid-template-columns: 1fr 120px; gap: 10px; }
+    .notice { font-size: .76rem; color: var(--muted); margin-top: 6px; }
+    .auth-shell {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .auth-card {
+      width: 100%;
+      max-width: 430px;
+      padding: 24px;
+    }
+    .auth-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .banner {
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(18, 32, 51, 0.92);
+      margin-bottom: 16px;
+    }
+    .banner strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+    .banner.info { border-color: rgba(76, 201, 240, 0.32); }
+    .banner.warn { border-color: rgba(245, 158, 11, 0.35); }
+    .banner.error { border-color: rgba(248, 113, 113, 0.35); }
+    .banner.success { border-color: rgba(52, 211, 153, 0.35); }
+    .hero-meta {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: .88rem;
+    }
+    .top-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    .admin-panel {
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .admin-panel h2 {
+      margin: 0 0 8px;
+      font-size: 1.12rem;
+    }
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+    }
+    .admin-table th,
+    .admin-table td {
+      text-align: left;
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .admin-table th {
+      color: var(--muted);
+      font-size: .82rem;
+      font-weight: 600;
+    }
+    .admin-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: .74rem;
+      border: 1px solid var(--border);
+      background: rgba(148,163,184,.12);
+    }
+    .status-chip.good {
+      color: #bbf7d0;
+      border-color: rgba(52, 211, 153, 0.35);
+    }
+    .status-chip.warn {
+      color: #fde68a;
+      border-color: rgba(245, 158, 11, 0.35);
+    }
+    .status-chip.info {
+      color: #bae6fd;
+      border-color: rgba(76, 201, 240, 0.35);
+    }
+    @media (max-width: 1280px) {
+      .main { grid-template-columns: 1fr; }
+      .editor { position: static; }
+    }
+    @media print {
+      body { background: #fff; color: #000; }
+      .wrap { max-width: none; padding: 0; }
+      .topbar, .editor, .stats, #appBanner { display: none !important; }
+      .main { display: block; }
+      .calendar-panel { box-shadow: none; border: none; background: #fff; color: #000; }
+      .day { break-inside: avoid; min-height: 180px; background: #fff; color: #000; border-color: #bbb; }
+      .line, .chip, .pill { color: #000; }
+    }
+    @media (max-width: 980px) {
+      .topbar, .stats { grid-template-columns: 1fr; }
+      .weekday-row, .calendar-grid { gap: 8px; }
+      .day { min-height: 180px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="auth" class="wrap auth-shell">
+    <div class="panel auth-card">
+      <h2>Sign in to Roster Dashboard Pro</h2>
+      <p class="muted">Use an approved email address. New users can register first, then you can approve them in Supabase before they get access.</p>
+      <div id="authBanner" class="banner info" style="display:none;"></div>
+      <form id="authForm">
+        <label for="email">Email</label>
+        <input type="email" id="email" autocomplete="email" required />
+        <label for="password">Password</label>
+        <input type="password" id="password" autocomplete="current-password" required />
+        <div class="auth-actions">
+          <button type="submit" class="primary">Sign in</button>
+          <button type="button" id="signupBtn">Register</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="app" style="display:none;">
+    <div class="wrap">
+      <div class="topbar">
+        <div class="panel hero">
+          <h1>Roster Dashboard Pro</h1>
+          <div class="hero-meta" id="userStatus">Not signed in</div>
+          <div class="top-actions">
+            <button id="migrateLocalBtn" class="ghost" style="display:none;">Upload local browser data to cloud</button>
+            <button id="logoutBtn" class="ghost">Logout</button>
+          </div>
+        </div>
+        <div class="panel controls">
+          <div class="control-grow">
+            <label for="monthSelect">Calendar month</label>
+            <div class="month-year-picker">
+              <select id="monthSelect"></select>
+              <input id="yearInput" type="number" min="2020" max="2100" step="1" />
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="prevMonthBtn">◀ Prev</button>
+            <button id="nextMonthBtn">Next ▶</button>
+            <button id="todayBtn">Jump to today</button>
+            <button id="duplicatePrevBtn">Copy previous day</button>
+            <button id="copyMonthBtn">Copy month to next month</button>
+            <button id="importBtn">Upload roster spreadsheet</button>
+            <input id="importFileInput" type="file" accept=".xlsx,.xls" style="display:none" />
+            <button id="exportBtn" class="good">Download month spreadsheet</button>
+            <button id="printBtn">Print month view</button>
+            <button id="resetBtn" class="warn">Reset saved edits</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="appBanner" class="banner info" style="display:none;"></div>
+
+      <div id="adminPanel" class="panel admin-panel" style="display:none;">
+        <h2>Access approvals</h2>
+        <p class="muted">Approve new registrations here. Admin users can access this panel even if they do not use the roster themselves.</p>
+        <div id="adminBanner" class="banner info" style="display:none;"></div>
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Requested</th>
+              <th>Approved</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="adminUsersBody"></tbody>
+        </table>
+      </div>
+
+      <div id="rosterWorkspace">
+      <div class="stats">
+        <div class="panel stat"><div class="label">Days in month</div><div class="value" id="statDays">-</div></div>
+        <div class="panel stat"><div class="label">Days with holiday entries</div><div class="value" id="statHoliday">-</div></div>
+        <div class="panel stat"><div class="label">Days with meetings / notes</div><div class="value" id="statMeetings">-</div></div>
+        <div class="panel stat"><div class="label">Unique people scheduled</div><div class="value" id="statPeople">-</div></div>
+        <div class="panel stat"><div class="label">Filtered matching days</div><div class="value" id="statFiltered">-</div></div>
+      </div>
+
+      <div class="main">
+        <div class="panel editor">
+          <h2>Quick entry editor</h2>
+          <div class="grid1">
+            <div>
+              <label for="dateInput">Date</label>
+              <input id="dateInput" type="date" />
+            </div>
+          </div>
+
+          <div class="section-title">Staff list</div>
+          <div class="staff-manage">
+            <input id="newStaffInput" type="text" placeholder="Add a staff member name" />
+            <button id="addStaffBtn">Add</button>
+          </div>
+          <div class="small-button-row">
+            <button id="sortStaffBtn" class="ghost">Sort staff list</button>
+            <button id="rebuildColoursBtn" class="ghost">Refresh colours</button>
+          </div>
+          <div class="notice">Only your approved list plus names you manually add are shown in the dropdowns. Imported names do not automatically get added.</div>
+
+          <div class="section-title">Shift entry</div>
+          <div class="grid2" id="formFields"></div>
+
+          <div class="grid1" style="margin-top:10px;">
+            <div>
+              <label for="notes">Notes</label>
+              <textarea id="notes" placeholder="Anything extra for the day"></textarea>
+            </div>
+          </div>
+          <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
+            <button id="saveBtn" class="primary">Save day</button>
+            <button id="clearBtn">Clear day</button>
+          </div>
+          <div class="helper">
+            Use the <strong>+</strong> button beside a shift to add another person quickly. Click any day in the calendar to edit it. Choose any month and any year, upload a roster spreadsheet in the same format as your original file, and your changes will autosave locally and sync to Supabase when you are signed in.
+          </div>
+        </div>
+
+        <div class="panel calendar-panel">
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <div>
+                <label for="staffFilter">Filter by staff</label>
+                <select id="staffFilter"></select>
+              </div>
+              <div>
+                <label for="shiftFilter">Filter by shift area</label>
+                <select id="shiftFilter"></select>
+              </div>
+              <div>
+                <label for="textFilter">Search notes / text</label>
+                <input id="textFilter" type="text" placeholder="Search holiday, notes, meetings..." />
+              </div>
+            </div>
+            <div class="toolbar-right">
+              <button id="clearFiltersBtn">Clear filters</button>
+            </div>
+          </div>
+
+          <h2 id="calendarTitle">Month</h2>
+          <div class="weekday-row">
+            <div class="weekday">Mon</div>
+            <div class="weekday">Tue</div>
+            <div class="weekday">Wed</div>
+            <div class="weekday">Thu</div>
+            <div class="weekday">Fri</div>
+            <div class="weekday">Sat</div>
+            <div class="weekday">Sun</div>
+          </div>
+          <div class="calendar-grid" id="calendarGrid"></div>
+
+          <div class="section-title">Staff colour legend</div>
+          <div class="legend" id="legend"></div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./supabase-config.js"></script>
+  <script>
+    const supabaseConfig = window.__SUPABASE_CONFIG || {};
+    const supabaseReady = Boolean(window.supabase && supabaseConfig.url && supabaseConfig.anonKey);
+    const supabaseClient = supabaseReady
+      ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey)
+      : null;
+    const APPROVED_USERS_TABLE = supabaseConfig.approvedUsersTable || 'approved_users';
+
+    const fields = [
+      ['am_milk', 'AM Milk'],
+      ['am_yard', 'AM Yard'],
+      ['am_assist', 'AM Assist'],
+      ['am_tmr_feed', 'AM TMR Feed'],
+      ['pm_milk', 'PM Milk'],
+      ['pm_yard', 'PM Yard'],
+      ['pm_assist', 'PM Assist'],
+      ['night_check', 'Night Check'],
+      ['night_milk', 'Night Milk'],
+      ['night_yard', 'Night Yard'],
+      ['training_other', 'Training / Meetings / Other'],
+      ['holiday', 'Holiday'],
+      ['y_feed', 'Y. Feed']
+    ];
+
+    const seedData = [];
+    const seedEvents = [];
+    const eventMap = Object.fromEntries(seedEvents.map(e => [e.date, e.event]));
+    const STORAGE_KEY = 'roster-dashboard-pro-v10';
+    const CUSTOM_STAFF_KEY = 'roster-dashboard-pro-custom-staff-v10';
+    const COLOUR_KEY = 'roster-dashboard-pro-colours-v10';
+    const DEFAULT_STAFF = ['Caroline', 'Joe', 'JJ', 'Robert', 'Liv', 'Lauren', 'Bessie', 'Isaac', 'Harry', 'Harvey', 'Charlie', 'Luke', 'Katie', 'Ross', 'Will', 'Rob', 'A4', 'Jim'];
+    const FREE_TEXT_FIELDS = new Set(['training_other']);
+    const ROSTER_COLUMNS = ['date', ...fields.map(([key]) => key), 'notes'];
+
+    let state = loadStateLocal();
+    let customStaff = loadCustomStaffLocal();
+    let staffList = buildStaffList(customStaff);
+    let colourMap = loadColourMapLocal();
+    let user = null;
+    let account = null;
+    let isApproved = false;
+    let isAdmin = false;
+    let persistTimer = null;
+    let suppressCloudPersist = false;
+
+    let selectedDate = formatYMD(getSafeInitialDate(state[0]?.date));
+    let selectedMonth = selectedDate.slice(0, 7);
+
+    const authRoot = document.getElementById('auth');
+    const appRoot = document.getElementById('app');
+    const authBanner = document.getElementById('authBanner');
+    const appBanner = document.getElementById('appBanner');
+    const adminBanner = document.getElementById('adminBanner');
+    const authForm = document.getElementById('authForm');
+    const signupBtn = document.getElementById('signupBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const migrateLocalBtn = document.getElementById('migrateLocalBtn');
+    const userStatus = document.getElementById('userStatus');
+    const adminPanel = document.getElementById('adminPanel');
+    const adminUsersBody = document.getElementById('adminUsersBody');
+    const rosterWorkspace = document.getElementById('rosterWorkspace');
+    const monthSelect = document.getElementById('monthSelect');
+    const yearInput = document.getElementById('yearInput');
+    const dateInput = document.getElementById('dateInput');
+    const notesInput = document.getElementById('notes');
+    const formFields = document.getElementById('formFields');
+    const calendarGrid = document.getElementById('calendarGrid');
+    const calendarTitle = document.getElementById('calendarTitle');
+    const staffFilter = document.getElementById('staffFilter');
+    const shiftFilter = document.getElementById('shiftFilter');
+    const textFilter = document.getElementById('textFilter');
+    const legend = document.getElementById('legend');
+
+    function getSafeInitialDate(candidate) {
+      const d = candidate ? parseYMD(candidate) : new Date();
+      if (!(d instanceof Date) || isNaN(d.getTime()) || d.getFullYear() < 2000) return new Date();
+      return d;
+    }
+
+    function loadStateLocal() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : structuredClone(seedData);
+    }
+
+    function cleanName(value) {
+      return String(value || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function dedupeSortedNames(names) {
+      return [...new Set((names || []).map(cleanName).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    }
+
+    function loadCustomStaffLocal() {
+      const raw = localStorage.getItem(CUSTOM_STAFF_KEY);
+      if (raw) return dedupeSortedNames(JSON.parse(raw));
+      return [];
+    }
+
+    function buildStaffList(customNames) {
+      return dedupeSortedNames([...DEFAULT_STAFF, ...(customNames || [])]);
+    }
+
+    function loadColourMapLocal() {
+      const raw = localStorage.getItem(COLOUR_KEY);
+      const existing = raw ? JSON.parse(raw) : {};
+      ensureColours(existing, staffList);
+      return existing;
+    }
+
+    function persistLocal() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(CUSTOM_STAFF_KEY, JSON.stringify(customStaff));
+      localStorage.setItem(COLOUR_KEY, JSON.stringify(colourMap));
+    }
+
+    function dedupeStateRecords(records) {
+      const byDate = new Map();
+      (records || []).forEach(rec => {
+        if (!rec?.date) return;
+        const merged = { date: rec.date };
+        fields.forEach(([key]) => {
+          merged[key] = cleanName(rec[key] || '');
+        });
+        merged.notes = cleanName(rec.notes || '');
+        byDate.set(rec.date, merged);
+      });
+      return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    function buildRosterPayload(records) {
+      return dedupeStateRecords(records).map(rec => {
+        const payload = { user_id: user.id };
+        ROSTER_COLUMNS.forEach(key => {
+          payload[key] = key === 'date' ? rec[key] : cleanName(rec[key] || '');
+        });
+        return payload;
+      });
+    }
+
+    async function loadStateCloud() {
+      const { data, error } = await supabaseClient
+        .from('rosters')
+        .select(ROSTER_COLUMNS.join(','))
+        .order('date', { ascending: true });
+      if (error) throw error;
+      return dedupeStateRecords(data || []);
+    }
+
+    async function loadCustomStaffCloud() {
+      const { data, error } = await supabaseClient
+        .from('custom_staff')
+        .select('names')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? dedupeSortedNames(data.names || []) : [];
+    }
+
+    async function loadColourMapCloud() {
+      const { data, error } = await supabaseClient
+        .from('colours')
+        .select('name, colour')
+        .order('name', { ascending: true });
+      if (error) throw error;
+      const map = {};
+      (data || []).forEach(row => {
+        if (row.name) map[row.name] = row.colour;
+      });
+      return map;
+    }
+
+    async function persistCloud() {
+      if (!supabaseReady || !user || !isApproved) return;
+
+      const rosterPayload = buildRosterPayload(state);
+      if (rosterPayload.length) {
+        const { error } = await supabaseClient
+          .from('rosters')
+          .upsert(rosterPayload, { onConflict: 'user_id,date' });
+        if (error) throw error;
+      }
+
+      const { error: customStaffError } = await supabaseClient
+        .from('custom_staff')
+        .upsert({ user_id: user.id, names: customStaff }, { onConflict: 'user_id' });
+      if (customStaffError) throw customStaffError;
+
+      const colourEntries = Object.entries(colourMap).map(([name, colour]) => ({
+        user_id: user.id,
+        name,
+        colour
+      }));
+      if (colourEntries.length) {
+        const { error: colourError } = await supabaseClient
+          .from('colours')
+          .upsert(colourEntries, { onConflict: 'user_id,name' });
+        if (colourError) throw colourError;
+      }
+    }
+
+    async function replaceCloudSnapshot(nextState, nextCustomStaff, nextColourMap) {
+      if (!supabaseReady || !user || !isApproved) return;
+
+      const { error: rostersDeleteError } = await supabaseClient.from('rosters').delete().eq('user_id', user.id);
+      if (rostersDeleteError) throw rostersDeleteError;
+
+      const { error: coloursDeleteError } = await supabaseClient.from('colours').delete().eq('user_id', user.id);
+      if (coloursDeleteError) throw coloursDeleteError;
+
+      const { error: customStaffDeleteError } = await supabaseClient.from('custom_staff').delete().eq('user_id', user.id);
+      if (customStaffDeleteError) throw customStaffDeleteError;
+
+      applySnapshot(nextState, nextCustomStaff, nextColourMap);
+      await persistCloud();
+    }
+
+    function hasLocalSnapshot() {
+      return loadStateLocal().length > 0
+        || loadCustomStaffLocal().length > 0
+        || Object.keys(loadColourMapLocal()).length > 0;
+    }
+
+    function scheduleCloudPersist() {
+      if (!supabaseReady || !user || !isApproved || suppressCloudPersist) return;
+      window.clearTimeout(persistTimer);
+      persistTimer = window.setTimeout(async () => {
+        try {
+          await persistCloud();
+        } catch (error) {
+          console.error(error);
+          showAppBanner('Could not sync to Supabase just now. Your latest edits are still safe in this browser.', 'error');
+        }
+      }, 500);
+    }
+
+    function persist() {
+      persistLocal();
+      scheduleCloudPersist();
+    }
+
+    function setVisibility(showApp) {
+      authRoot.style.display = showApp ? 'none' : 'flex';
+      appRoot.style.display = showApp ? 'block' : 'none';
+    }
+
+    function setRosterWorkspaceVisible(showRoster) {
+      rosterWorkspace.style.display = showRoster ? 'block' : 'none';
+    }
+
+    function renderBanner(target, title, message, type) {
+      target.className = `banner ${type}`;
+      target.innerHTML = `<strong>${escapeHtml(title)}</strong><div>${escapeHtml(message)}</div>`;
+      target.style.display = message ? 'block' : 'none';
+    }
+
+    function showAuthBanner(message, type = 'info') {
+      const titleMap = { info: 'Sign in', warn: 'Approval needed', error: 'Setup issue', success: 'Done' };
+      renderBanner(authBanner, titleMap[type] || 'Sign in', message, type);
+    }
+
+    function showAppBanner(message, type = 'info') {
+      const titleMap = { info: 'Heads up', warn: 'Review this', error: 'Sync issue', success: 'Done' };
+      renderBanner(appBanner, titleMap[type] || 'Heads up', message, type);
+    }
+
+    function showAdminBanner(message, type = 'info') {
+      const titleMap = { info: 'Admin', warn: 'Review this', error: 'Action failed', success: 'Done' };
+      renderBanner(adminBanner, titleMap[type] || 'Admin', message, type);
+    }
+
+    async function loadCurrentAccount() {
+      const { data, error } = await supabaseClient
+        .from(APPROVED_USERS_TABLE)
+        .select('user_id, email, approved, is_admin, requested_at, approved_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data || null;
+    }
+
+    function applySnapshot(nextState, nextCustomStaff, nextColourMap) {
+      suppressCloudPersist = true;
+      state = dedupeStateRecords(nextState);
+      customStaff = dedupeSortedNames(nextCustomStaff);
+      staffList = buildStaffList(customStaff);
+      colourMap = { ...nextColourMap };
+      ensureColours(colourMap, staffList);
+      selectedDate = formatYMD(getSafeInitialDate(state[0]?.date));
+      selectedMonth = selectedDate.slice(0, 7);
+      persistLocal();
+      refreshAll();
+      suppressCloudPersist = false;
+    }
+
+    async function loadData() {
+      const localState = loadStateLocal();
+      const localCustomStaff = loadCustomStaffLocal();
+      const localColourMap = loadColourMapLocal();
+
+      try {
+        const [cloudState, cloudCustomStaff, cloudColourMap] = await Promise.all([
+          loadStateCloud(),
+          loadCustomStaffCloud(),
+          loadColourMapCloud()
+        ]);
+        const cloudHasData = cloudState.length > 0
+          || cloudCustomStaff.length > 0
+          || Object.keys(cloudColourMap).length > 0;
+
+        if (cloudHasData) {
+          applySnapshot(cloudState, cloudCustomStaff, cloudColourMap);
+          showAppBanner('Loaded your roster from Supabase.', 'success');
+        } else {
+          applySnapshot(localState, localCustomStaff, localColourMap);
+          if (hasLocalSnapshot()) {
+            showAppBanner('Cloud storage is empty, so this browser copy was loaded locally. Use the upload button above to move it into Supabase.', 'warn');
+          } else {
+            showAppBanner('Your account is ready. New edits will sync to Supabase automatically.', 'info');
+          }
+        }
+      } catch (error) {
+        console.error(error);
+        applySnapshot(localState, localCustomStaff, localColourMap);
+        showAppBanner('Supabase could not be reached, so the app stayed on local browser storage for now.', 'error');
+      }
+
+      migrateLocalBtn.style.display = hasLocalSnapshot() ? 'inline-flex' : 'none';
+      userStatus.textContent = user?.email
+        ? `${user.email}${isAdmin ? ' • admin' : ''}${isApproved ? ' • roster access' : ' • approvals only'}`
+        : 'Not signed in';
+    }
+
+    async function loadAdminUsers() {
+      const { data, error } = await supabaseClient
+        .from(APPROVED_USERS_TABLE)
+        .select('user_id, email, approved, is_admin, requested_at, approved_at')
+        .order('requested_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    }
+
+    function formatDateTime(value) {
+      if (!value) return '—';
+      const parsed = new Date(value);
+      if (isNaN(parsed)) return '—';
+      return parsed.toLocaleString('en-GB');
+    }
+
+    function accountStatusHtml(row) {
+      if (row.is_admin) return '<span class="status-chip info">Admin</span>';
+      if (row.approved) return '<span class="status-chip good">Approved</span>';
+      return '<span class="status-chip warn">Pending</span>';
+    }
+
+    function renderAdminUsers(rows) {
+      adminUsersBody.innerHTML = '';
+      if (!rows.length) {
+        adminUsersBody.innerHTML = '<tr><td colspan="5" class="muted">No registered users found yet.</td></tr>';
+        return;
+      }
+
+      rows.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(row.email || '(no email)')}</td>
+          <td>${accountStatusHtml(row)}</td>
+          <td>${escapeHtml(formatDateTime(row.requested_at))}</td>
+          <td>${escapeHtml(formatDateTime(row.approved_at))}</td>
+          <td>
+            <div class="admin-actions">
+              <button type="button" data-approve="${row.user_id}">${row.approved ? 'Remove access' : 'Approve'}</button>
+              <button type="button" data-admin="${row.user_id}">${row.is_admin ? 'Remove admin' : 'Make admin'}</button>
+            </div>
+          </td>`;
+        adminUsersBody.appendChild(tr);
+      });
+    }
+
+    async function refreshAdminPanel(message = '') {
+      if (!isAdmin) return;
+      const rows = await loadAdminUsers();
+      renderAdminUsers(rows);
+      adminPanel.style.display = 'block';
+      if (message) showAdminBanner(message, 'success');
+    }
+
+    async function updateUserApproval(targetUserId, patch) {
+      const update = { ...patch };
+      if (Object.prototype.hasOwnProperty.call(patch, 'approved')) {
+        update.approved_at = patch.approved ? new Date().toISOString() : null;
+        update.approved_by = patch.approved ? user.id : null;
+      }
+      const { error } = await supabaseClient
+        .from(APPROVED_USERS_TABLE)
+        .update(update)
+        .eq('user_id', targetUserId);
+      if (error) throw error;
+    }
+
+    async function migrateLocalDataToCloud() {
+      const localState = loadStateLocal();
+      const localCustomStaff = loadCustomStaffLocal();
+      const localColourMap = loadColourMapLocal();
+
+      if (!localState.length && !localCustomStaff.length && !Object.keys(localColourMap).length) {
+        showAppBanner('There is no local browser data to upload from this device.', 'info');
+        return;
+      }
+
+      const confirmed = window.confirm('Upload this browser\'s saved roster data to Supabase and replace the cloud copy for your account?');
+      if (!confirmed) return;
+
+      try {
+        await replaceCloudSnapshot(localState, localCustomStaff, localColourMap);
+        showAppBanner('Local browser data was uploaded to Supabase.', 'success');
+      } catch (error) {
+        console.error(error);
+        showAppBanner('Could not upload local browser data to Supabase.', 'error');
+      }
+    }
+
+    async function handleSession(session) {
+      user = session?.user || null;
+      account = null;
+      isApproved = false;
+      isAdmin = false;
+
+      if (!supabaseReady) {
+        setVisibility(false);
+        showAuthBanner('Create supabase-config.js from the example file and add your project URL and anon key.', 'warn');
+        return;
+      }
+
+      if (!user) {
+        setVisibility(false);
+        showAuthBanner('Sign in or register with an approved email address to access the app.', 'info');
+        return;
+      }
+
+      try {
+        account = await loadCurrentAccount();
+        isApproved = Boolean(account?.approved);
+        isAdmin = Boolean(account?.is_admin);
+      } catch (error) {
+        console.error(error);
+        setVisibility(false);
+        showAuthBanner('Signed in, but access could not be checked. Re-run the updated SQL setup so the admin approval fields and policies exist.', 'error');
+        return;
+      }
+
+      if (!isApproved && !isAdmin) {
+        setVisibility(false);
+        showAuthBanner('Your account exists but is not approved yet. An admin can now approve you from the app approval panel.', 'warn');
+        return;
+      }
+
+      showAuthBanner('', 'info');
+      setVisibility(true);
+      adminPanel.style.display = isAdmin ? 'block' : 'none';
+      setRosterWorkspaceVisible(isApproved);
+      userStatus.textContent = user?.email
+        ? `${user.email}${isAdmin ? ' • admin' : ''}${isApproved ? ' • roster access' : ' • approvals only'}`
+        : 'Not signed in';
+
+      if (isApproved) {
+        await loadData();
+      } else {
+        showAppBanner('This account can approve registrations but does not have roster access.', 'info');
+      }
+
+      if (isAdmin) {
+        await refreshAdminPanel();
+      }
+    }
+
+    function ensureColours(map, names) {
+      names.forEach(name => {
+        if (!map[name]) map[name] = colourForName(name);
+      });
+    }
+
+    function colourForName(name) {
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash) + name.charCodeAt(i);
+      const hue = Math.abs(hash) % 360;
+      return `hsl(${hue} 70% 58%)`;
+    }
+
+    function parseYMD(dateStr) {
+      const [y, m, d] = String(dateStr).split('-').map(Number);
+      return new Date(y, (m || 1) - 1, d || 1);
+    }
+
+    function formatYMD(dateObj) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const d = String(dateObj.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function formatYM(dateObj) {
+      return formatYMD(dateObj).slice(0, 7);
+    }
+
+    function monthRange(month) {
+      const [year, monthNum] = String(month).split('-').map(Number);
+      const start = new Date(year, (monthNum || 1) - 1, 1);
+      const end = new Date(year, monthNum || 1, 1);
+      return { start, end };
+    }
+
+    function getDaysInMonth(month) {
+      const { start, end } = monthRange(month);
+      const days = [];
+      const cursor = new Date(start);
+      while (cursor < end) {
+        days.push(formatYMD(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      return days;
+    }
+
+    function normaliseRecord(date) {
+      let rec = state.find(r => r.date === date);
+      if (!rec) {
+        rec = { date };
+        fields.forEach(([key]) => { rec[key] = ''; });
+        rec.notes = eventMap[date] || '';
+        state.push(rec);
+        state.sort((a, b) => a.date.localeCompare(b.date));
+      }
+      if (eventMap[date] && !rec.notes) rec.notes = eventMap[date];
+      return rec;
+    }
+
+    function monthLabel(month) {
+      return parseYMD(month + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    }
+
+    function refreshMonthPicker() {
+      const [year, month] = selectedMonth.split('-');
+      monthSelect.value = String(Number(month));
+      yearInput.value = year;
+      calendarTitle.textContent = monthLabel(selectedMonth);
+    }
+
+    function monthOptionsHtml() {
+      return [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ].map((label, idx) => `<option value="${idx + 1}">${label}</option>`).join('');
+    }
+
+    function updateSelectedMonthFromControls() {
+      const month = String(monthSelect.value || '1').padStart(2, '0');
+      const year = String(yearInput.value || new Date().getFullYear());
+      selectedMonth = `${year}-${month}`;
+    }
+
+    function buildSelectOptions(includeBlank = true, currentValue = '') {
+      const opts = [];
+      if (includeBlank) opts.push('<option value=""></option>');
+      const cleanCurrent = cleanName(currentValue);
+      if (cleanCurrent && !staffList.includes(cleanCurrent)) {
+        opts.push(`<option value="${escapeHtml(cleanCurrent)}">${escapeHtml(cleanCurrent)} (existing)</option>`);
+      }
+      staffList.forEach(name => opts.push(`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`));
+      return opts.join('');
+    }
+
+    function createFieldControl(fieldKey, value = '') {
+      if (FREE_TEXT_FIELDS.has(fieldKey)) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'text-slot';
+        input.setAttribute('data-field', fieldKey);
+        input.value = cleanName(value);
+        input.placeholder = 'Enter free text';
+        return input;
+      }
+      const select = document.createElement('select');
+      select.className = 'person-slot';
+      select.setAttribute('data-field', fieldKey);
+      select.innerHTML = buildSelectOptions(true, value);
+      select.value = cleanName(value);
+      return select;
+    }
+
+    function renderFormFields() {
+      formFields.innerHTML = '';
+      for (const [key, label] of fields) {
+        const wrap = document.createElement('div');
+        if (FREE_TEXT_FIELDS.has(key)) {
+          wrap.innerHTML = `
+            <label>${label}</label>
+            <div class="slot-wrap" data-field="${key}"></div>`;
+          formFields.appendChild(wrap);
+          const slotWrap = wrap.querySelector('.slot-wrap');
+          slotWrap.appendChild(createFieldControl(key, ''));
+        } else {
+          wrap.innerHTML = `
+            <label>${label}</label>
+            <div class="slot-wrap" data-field="${key}">
+              <select class="person-slot" data-field="${key}">
+                ${buildSelectOptions(true, '')}
+              </select>
+              <button class="tiny-btn" type="button" title="Add another person" data-add-slot="${key}">+</button>
+            </div>`;
+          formFields.appendChild(wrap);
+        }
+      }
+      formFields.querySelectorAll('[data-add-slot]').forEach(btn => {
+        btn.addEventListener('click', () => addPersonSlot(btn.getAttribute('data-add-slot')));
+      });
+    }
+
+    function addPersonSlot(fieldKey, value = '') {
+      if (FREE_TEXT_FIELDS.has(fieldKey)) return;
+      const wrap = formFields.querySelector(`.slot-wrap[data-field="${fieldKey}"]`);
+      const select = document.createElement('select');
+      select.className = 'person-slot';
+      select.setAttribute('data-field', fieldKey);
+      select.innerHTML = buildSelectOptions(true, value);
+      select.value = cleanName(value);
+      wrap.insertBefore(select, wrap.lastElementChild);
+    }
+
+    function setFieldSlots(fieldKey, rawValue) {
+      const wrap = formFields.querySelector(`.slot-wrap[data-field="${fieldKey}"]`);
+      if (FREE_TEXT_FIELDS.has(fieldKey)) {
+        wrap.innerHTML = '';
+        wrap.appendChild(createFieldControl(fieldKey, rawValue || ''));
+        return;
+      }
+      wrap.querySelectorAll('select.person-slot').forEach((el, idx) => {
+        if (idx > 0) el.remove();
+      });
+      const parts = rawValue ? splitStoredValue(rawValue) : [''];
+      const firstSelect = wrap.querySelector('select.person-slot');
+      firstSelect.innerHTML = buildSelectOptions(true, parts[0] || '');
+      firstSelect.value = cleanName(parts[0] || '');
+      parts.slice(1).forEach(v => addPersonSlot(fieldKey, v));
+    }
+
+    function splitStoredValue(value) {
+      return String(value)
+        .split(/[\/,;+]|\band\b|&/gi)
+        .map(v => v.replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+    }
+
+    function collectFieldValue(fieldKey) {
+      if (FREE_TEXT_FIELDS.has(fieldKey)) {
+        const input = formFields.querySelector(`input.text-slot[data-field="${fieldKey}"]`);
+        return cleanName(input ? input.value : '');
+      }
+      const vals = [...formFields.querySelectorAll(`select.person-slot[data-field="${fieldKey}"]`)]
+        .map(el => cleanName(el.value))
+        .filter(Boolean);
+      return vals.join(' / ');
+    }
+
+    function fillEditor(date) {
+      const rec = normaliseRecord(date);
+      dateInput.value = date;
+      notesInput.value = rec.notes || '';
+      for (const [key] of fields) setFieldSlots(key, rec[key] || '');
+      selectedDate = date;
+      selectedMonth = date.slice(0, 7);
+      refreshMonthPicker();
+      renderCalendar();
+    }
+
+    function saveEditor() {
+      const date = dateInput.value;
+      if (!date) return;
+      const rec = normaliseRecord(date);
+      for (const [key] of fields) rec[key] = collectFieldValue(key);
+      rec.notes = notesInput.value.trim();
+      syncStaffFromState();
+      persist();
+      selectedDate = date;
+      selectedMonth = date.slice(0, 7);
+      refreshAll();
+    }
+
+    function autosaveCurrentEditor(renderAfter = false) {
+      const date = dateInput.value;
+      if (!date) return;
+      const rec = normaliseRecord(date);
+      for (const [key] of fields) rec[key] = collectFieldValue(key);
+      rec.notes = notesInput.value.trim();
+      selectedDate = date;
+      selectedMonth = date.slice(0, 7);
+      persist();
+      if (renderAfter) {
+        refreshMonthPicker();
+        renderCalendar();
+      }
+    }
+
+    function clearEditor() {
+      const date = dateInput.value;
+      if (!date) return;
+      const rec = normaliseRecord(date);
+      fields.forEach(([key]) => { rec[key] = ''; });
+      rec.notes = eventMap[date] || '';
+      fillEditor(date);
+      persist();
+      renderCalendar();
+    }
+
+    function copyPreviousDay() {
+      const date = dateInput.value;
+      if (!date) return;
+      const prev = parseYMD(date);
+      prev.setDate(prev.getDate() - 1);
+      const prevDate = formatYMD(prev);
+      const prevRec = state.find(r => r.date === prevDate);
+      if (!prevRec) return;
+      const rec = normaliseRecord(date);
+      fields.forEach(([key]) => { rec[key] = prevRec[key] || ''; });
+      rec.notes = prevRec.notes || eventMap[date] || '';
+      fillEditor(date);
+      persist();
+    }
+
+    function uniquePeopleFromState(records) {
+      const people = new Set();
+      records.forEach(r => fields.forEach(([key]) => extractPeople(r[key]).forEach(p => people.add(p))));
+      return [...people].sort((a, b) => a.localeCompare(b));
+    }
+
+    function extractPeople(value) {
+      if (!value) return [];
+      return String(value)
+        .split(/[\/,;+]|\band\b|&|\n/gi)
+        .map(v => v.replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .filter(v => v.length > 1)
+        .filter(v => !/^\d/.test(v))
+        .filter(v => !/(meeting|vet|show|course|club|convention|off|pm|am|team|bed up|heifer|cow|drys|re-check|last day)/i.test(v));
+    }
+
+    function syncStaffFromState() {
+      staffList = dedupeSortedNames(staffList);
+      ensureColours(colourMap, staffList);
+    }
+
+    function personChips(record, activeShift) {
+      const names = new Set();
+      fields.forEach(([key]) => {
+        if (activeShift && activeShift !== 'all' && key !== activeShift) return;
+        extractPeople(record[key]).forEach(p => names.add(p));
+      });
+      return [...names].slice(0, 8);
+    }
+
+    function matchesFilters(record) {
+      const staffNeedle = staffFilter.value;
+      const shiftNeedle = shiftFilter.value;
+      const textNeedle = textFilter.value.trim().toLowerCase();
+      let ok = true;
+      if (staffNeedle) {
+        const fieldsToCheck = shiftNeedle && shiftNeedle !== 'all' ? [shiftNeedle] : fields.map(([k]) => k);
+        ok = fieldsToCheck.some(key => extractPeople(record[key]).includes(staffNeedle));
+      }
+      if (ok && textNeedle) {
+        const hay = [record.notes, ...fields.map(([k]) => record[k] || '')].join(' ').toLowerCase();
+        ok = hay.includes(textNeedle);
+      }
+      return ok;
+    }
+
+    function peopleCount(monthRecords) {
+      return uniquePeopleFromState(monthRecords).length;
+    }
+
+    function updateStats(monthRecords, visibleDays) {
+      document.getElementById('statDays').textContent = monthRecords.length;
+      document.getElementById('statHoliday').textContent = monthRecords.filter(r => (r.holiday || '').trim()).length;
+      document.getElementById('statMeetings').textContent = monthRecords.filter(r => (r.training_other || '').trim() || (r.notes || '').trim()).length;
+      document.getElementById('statPeople').textContent = peopleCount(monthRecords);
+      document.getElementById('statFiltered').textContent = visibleDays;
+    }
+
+    function renderLegend() {
+      legend.innerHTML = '';
+      staffList.forEach(name => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.innerHTML = `<span class="dot" style="background:${colourMap[name]}"></span>${escapeHtml(name)} <input type="color" value="${colourToHex(colourMap[name])}" title="Choose colour for ${escapeHtml(name)}" aria-label="Choose colour for ${escapeHtml(name)}">`;
+        const picker = chip.querySelector('input[type="color"]');
+        picker.addEventListener('click', e => e.stopPropagation());
+        picker.addEventListener('input', e => {
+          colourMap[name] = e.target.value;
+          persist();
+          renderLegend();
+          renderCalendar();
+        });
+        legend.appendChild(chip);
+      });
+    }
+
+    function renderFilters() {
+      staffFilter.innerHTML = '<option value="">All staff</option>' + staffList.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+      if (![...staffFilter.options].some(o => o.value === staffFilter.dataset.keep)) staffFilter.dataset.keep = '';
+      staffFilter.value = staffFilter.dataset.keep || '';
+      const shiftOptions = [['all', 'All shifts'], ...fields];
+      shiftFilter.innerHTML = shiftOptions.map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
+      shiftFilter.value = shiftFilter.dataset.keep || 'all';
+    }
+
+    function renderCalendar() {
+      const days = getDaysInMonth(selectedMonth);
+      const monthRecords = days.map(date => normaliseRecord(date));
+      const visibleCount = monthRecords.filter(matchesFilters).length;
+      updateStats(monthRecords, visibleCount);
+      refreshMonthPicker();
+      calendarGrid.innerHTML = '';
+
+      const firstDate = parseYMD(days[0]);
+      const mondayBased = (firstDate.getDay() + 6) % 7;
+      for (let i = 0; i < mondayBased; i++) {
+        const empty = document.createElement('div');
+        empty.className = 'day empty';
+        calendarGrid.appendChild(empty);
+      }
+
+      monthRecords.forEach(rec => {
+        const dateObj = parseYMD(rec.date);
+        const isMatch = matchesFilters(rec);
+        const chips = personChips(rec, shiftFilter.value);
+        const day = document.createElement('div');
+        day.className = 'day' + (rec.date === selectedDate ? ' selected' : '') + (isMatch ? '' : ' dimmed');
+        day.onclick = () => fillEditor(rec.date);
+
+        const top = document.createElement('div');
+        top.className = 'day-top';
+        const noteCount = [rec.training_other, rec.notes, rec.holiday].filter(v => (v || '').trim()).length;
+        top.innerHTML = `
+          <div>
+            <div class="day-num">${dateObj.getDate()}</div>
+            <div class="day-sub">${dateObj.toLocaleDateString('en-GB', { weekday: 'short' })}</div>
+          </div>
+          ${noteCount ? `<span class="pill">${noteCount} detail${noteCount > 1 ? 's' : ''}</span>` : ''}
+        `;
+        day.appendChild(top);
+
+        [
+          ['am_milk', 'AM Milk', rec.am_milk],
+          ['am_yard', 'AM Yard', rec.am_yard],
+          ['pm_milk', 'PM Milk', rec.pm_milk],
+          ['night_milk', 'Night Milk', rec.night_milk]
+        ].forEach(([, label, value]) => {
+          if (!value) return;
+          const line = document.createElement('div');
+          line.className = 'line';
+          line.innerHTML = `<strong>${label}:</strong> ${escapeHtml(value)}`;
+          day.appendChild(line);
+        });
+
+        if (chips.length) {
+          const chipWrap = document.createElement('div');
+          chipWrap.className = 'chips';
+          chips.forEach(name => {
+            const chip = document.createElement('span');
+            chip.className = 'chip';
+            chip.innerHTML = `<span class="dot" style="background:${colourMap[name] || colourForName(name)}"></span>${escapeHtml(name)}`;
+            chipWrap.appendChild(chip);
+          });
+          day.appendChild(chipWrap);
+        }
+
+        const footer = document.createElement('div');
+        footer.className = 'day-footer';
+        if ((rec.holiday || '').trim()) footer.innerHTML += `<span class="tag holiday">Holiday: ${escapeHtml(rec.holiday)}</span>`;
+        if ((rec.training_other || '').trim()) footer.innerHTML += `<span class="tag meeting">Meeting / other</span>`;
+        if ((rec.y_feed || '').trim()) footer.innerHTML += `<span class="tag feed">Y. Feed: ${escapeHtml(rec.y_feed)}</span>`;
+        day.appendChild(footer);
+
+        if ((rec.notes || '').trim()) {
+          const note = document.createElement('div');
+          note.className = 'small muted';
+          note.textContent = rec.notes;
+          day.appendChild(note);
+        }
+
+        calendarGrid.appendChild(day);
+      });
+    }
+
+    function copyMonthToNextMonth() {
+      autosaveCurrentEditor(false);
+      const sourceDays = getDaysInMonth(selectedMonth);
+      const sourceRecords = sourceDays.map(date => normaliseRecord(date));
+      const sourceDate = parseYMD(selectedMonth + '-01');
+      const targetMonthDate = new Date(sourceDate.getFullYear(), sourceDate.getMonth() + 1, 1);
+      const targetMonth = formatYM(targetMonthDate);
+      const targetDays = getDaysInMonth(targetMonth);
+
+      const sourcePattern = {};
+      sourceRecords.forEach(srcRec => {
+        const d = parseYMD(srcRec.date);
+        const weekday = d.getDay();
+        const occurrence = Math.floor((d.getDate() - 1) / 7) + 1;
+        if (!sourcePattern[weekday]) sourcePattern[weekday] = {};
+        sourcePattern[weekday][occurrence] = srcRec;
+      });
+
+      targetDays.forEach(targetDate => {
+        const d = parseYMD(targetDate);
+        const weekday = d.getDay();
+        const occurrence = Math.floor((d.getDate() - 1) / 7) + 1;
+        const weekdayPattern = sourcePattern[weekday] || {};
+        const fallbackOccurrence = Math.max(...Object.keys(weekdayPattern).map(Number), 0);
+        const srcRec = weekdayPattern[occurrence] || weekdayPattern[fallbackOccurrence];
+        if (!srcRec) return;
+        const targetRec = normaliseRecord(targetDate);
+        fields.forEach(([key]) => { targetRec[key] = srcRec[key] || ''; });
+        targetRec.notes = srcRec.notes || eventMap[targetDate] || '';
+      });
+
+      selectedMonth = targetMonth;
+      selectedDate = targetDays[0];
+      persist();
+      refreshAll();
+      alert(`Copied ${monthLabel(formatYM(sourceDate))} into ${monthLabel(targetMonth)} using weekday patterns.`);
+    }
+
+    function excelSerialToYMD(value) {
+      const serial = Number(value);
+      if (!Number.isFinite(serial)) return '';
+      const utcDays = Math.floor(serial - 25569);
+      const utcValue = utcDays * 86400;
+      const dateInfo = new Date(utcValue * 1000);
+      return formatYMD(new Date(dateInfo.getUTCFullYear(), dateInfo.getUTCMonth(), dateInfo.getUTCDate()));
+    }
+
+    function cellToYMD(value) {
+      if (value == null || value === '') return '';
+      if (value instanceof Date && !isNaN(value)) return formatYMD(value);
+      if (typeof value === 'number') return excelSerialToYMD(value);
+      const str = String(value).trim();
+      if (!str) return '';
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+      if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
+        const [d, m, y] = str.split('/').map(Number);
+        return formatYMD(new Date(y, m - 1, d));
+      }
+      const parsed = new Date(str);
+      if (!isNaN(parsed)) return formatYMD(parsed);
+      return '';
+    }
+
+    function parseRosterRowsFromHeaderTable(rows) {
+      const records = [];
+      rows.forEach(row => {
+        const rawDate = row['Date'] || row.date || row.DATE || row.Day || row.day;
+        const ymd = cellToYMD(rawDate);
+        if (!ymd) return;
+        const rec = { date: ymd };
+        rec.am_milk = cleanName(row['AM Milk'] || row['Am Milk'] || '');
+        rec.am_yard = cleanName(row['AM Yard'] || row['Am Yard'] || '');
+        rec.am_assist = cleanName(row['AM Assist'] || row['Am Assist'] || '');
+        rec.am_tmr_feed = cleanName(row['AM TMR Feed'] || row['Am TMR Feed'] || row['AM TMR feed'] || '');
+        rec.pm_milk = cleanName(row['PM Milk'] || row['Pm Milk'] || '');
+        rec.pm_yard = cleanName(row['PM Yard'] || row['Pm Yard'] || '');
+        rec.pm_assist = cleanName(row['PM Assist'] || row['Pm Assist'] || '');
+        rec.night_check = cleanName(row['Night Check'] || '');
+        rec.night_milk = cleanName(row['Night Milk'] || '');
+        rec.night_yard = cleanName(row['Night Yard'] || '');
+        rec.training_other = cleanName(row['Training / Meetings / Other'] || row['Training/Meetings/Other'] || row['Training / meetings / other'] || '');
+        rec.holiday = cleanName(row.Holiday || '');
+        rec.y_feed = cleanName(row['Y. Feed'] || row['Y Feed'] || '');
+        rec.notes = cleanName(row.Notes || '');
+        records.push(rec);
+      });
+      return records;
+    }
+
+    function parseRosterRowsFromOriginalFormat(sheet) {
+      const records = [];
+      const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1:O500');
+      let lastDate = null;
+
+      for (let r = 2; r <= range.e.r; r++) {
+        const getCellValue = c => {
+          const cell = sheet[XLSX.utils.encode_cell({ r, c })];
+          return cell ? cell.v : '';
+        };
+
+        const rawDate = getCellValue(0);
+        const amMilk = getCellValue(1);
+        const amYard = getCellValue(2);
+        const amAssist = getCellValue(3);
+        const amTmr = getCellValue(4);
+        const pmMilk = getCellValue(5);
+        const pmYard = getCellValue(6);
+        const pmAssist = getCellValue(7);
+        const nightCheck = getCellValue(8);
+        const nightMilk = getCellValue(9);
+        const nightYard = getCellValue(10);
+        const trainingOther = getCellValue(11);
+        const holiday = getCellValue(12);
+        const yFeed = getCellValue(13);
+        const notes = getCellValue(14);
+
+        const hasAnyRosterData = [rawDate, amMilk, amYard, amAssist, amTmr, pmMilk, pmYard, pmAssist, nightCheck, nightMilk, nightYard, trainingOther, holiday, yFeed, notes]
+          .some(v => String(v || '').trim() !== '');
+        if (!hasAnyRosterData) continue;
+
+        let ymd = cellToYMD(rawDate);
+        if (!ymd && typeof rawDate === 'string') {
+          const text = rawDate.trim();
+          if (text.toLowerCase() === 'new year' && lastDate) {
+            const nextDay = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate() + 1);
+            ymd = formatYMD(nextDay);
+          } else {
+            const parsed = new Date(text);
+            if (!isNaN(parsed)) ymd = formatYMD(parsed);
+          }
+        }
+
+        if (!ymd && lastDate && typeof rawDate === 'number' && rawDate >= 1 && rawDate <= 31) {
+          const guessed = new Date(lastDate.getFullYear(), lastDate.getMonth(), rawDate);
+          if (!isNaN(guessed)) ymd = formatYMD(guessed);
+        }
+
+        if (!ymd) continue;
+        lastDate = new Date(ymd + 'T00:00:00');
+
+        records.push({
+          date: ymd,
+          am_milk: cleanName(amMilk || ''),
+          am_yard: cleanName(amYard || ''),
+          am_assist: cleanName(amAssist || ''),
+          am_tmr_feed: cleanName(amTmr || ''),
+          pm_milk: cleanName(pmMilk || ''),
+          pm_yard: cleanName(pmYard || ''),
+          pm_assist: cleanName(pmAssist || ''),
+          night_check: cleanName(nightCheck || ''),
+          night_milk: cleanName(nightMilk || ''),
+          night_yard: cleanName(nightYard || ''),
+          training_other: cleanName(trainingOther || ''),
+          holiday: cleanName(holiday || ''),
+          y_feed: cleanName(yFeed || ''),
+          notes: cleanName(notes || '')
+        });
+      }
+
+      return records;
+    }
+
+    async function importRosterWorkbook(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async evt => {
+        try {
+          if (typeof XLSX === 'undefined') throw new Error('Spreadsheet import library failed to load.');
+          const data = new Uint8Array(evt.target.result);
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+          let records = parseRosterRowsFromHeaderTable(rows);
+          if (!records.length) records = parseRosterRowsFromOriginalFormat(sheet);
+          if (!records.length) throw new Error('No roster rows were found in that spreadsheet.');
+
+          state = records.sort((a, b) => a.date.localeCompare(b.date));
+          const firstDate = records[0]?.date || formatYMD(new Date());
+          selectedDate = formatYMD(getSafeInitialDate(firstDate));
+          selectedMonth = selectedDate.slice(0, 7);
+          persistLocal();
+
+          if (supabaseReady && user && isApproved) {
+            await replaceCloudSnapshot(state, customStaff, colourMap);
+            showAppBanner('Spreadsheet imported and synced to Supabase.', 'success');
+          } else {
+            showAppBanner('Spreadsheet imported locally in this browser.', 'success');
+          }
+
+          refreshAll();
+          alert(`Imported ${records.length} roster row${records.length === 1 ? '' : 's'}.`);
+        } catch (error) {
+          alert('Could not import that roster spreadsheet: ' + error.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function exportMonthSpreadsheet() {
+      const monthRecords = getDaysInMonth(selectedMonth).map(date => normaliseRecord(date));
+      const monthTitle = monthLabel(selectedMonth);
+      const headers = ['Date', 'AM Milk', 'AM Yard', 'AM Assist', 'AM TMR Feed', 'PM Milk', 'PM Yard', 'PM Assist', 'Night Check', 'Night Milk', 'Night Yard', 'Training / Meetings / Other', 'Holiday', 'Y. Feed', 'Notes'];
+      const rows = monthRecords.map(r => [
+        formatDate(r.date), r.am_milk, r.am_yard, r.am_assist, r.am_tmr_feed,
+        r.pm_milk, r.pm_yard, r.pm_assist, r.night_check, r.night_milk, r.night_yard,
+        r.training_other, r.holiday, r.y_feed, r.notes
+      ]);
+
+      const tableRows = monthRecords.map((record, idx) => {
+        const cols = rows[idx];
+        const dayNum = parseYMD(record.date).getDay();
+        const rowClass = dayNum === 0 || dayNum === 6 ? 'weekend-row' : '';
+        return `<tr class="${rowClass}">${cols.map(c => `<td>${escapeHtml(c || '')}</td>`).join('')}</tr>`;
+      }).join('');
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+        table{border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px} th,td{border:1px solid #cbd5e1;padding:6px 8px;vertical-align:top} th{background:#0f172a;color:#fff} h1{font-family:Arial,sans-serif} .weekend-row td{background:#fff3cd !important}
+      </style></head><body><h1>${monthTitle} Roster</h1><table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${tableRows}</tbody></table></body></html>`;
+
+      const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${selectedMonth}-roster.xls`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function formatDate(dateStr) {
+      return parseYMD(dateStr).toLocaleDateString('en-GB');
+    }
+
+    function changeMonth(delta) {
+      autosaveCurrentEditor(false);
+      const d = parseYMD(selectedMonth + '-01');
+      d.setMonth(d.getMonth() + delta);
+      selectedMonth = formatYM(d);
+      const firstDay = getDaysInMonth(selectedMonth)[0];
+      fillEditor(selectedDate.startsWith(selectedMonth) ? selectedDate : firstDay);
+    }
+
+    function refreshAll() {
+      syncStaffFromState();
+      ensureColours(colourMap, staffList);
+      renderFilters();
+      renderFormFields();
+      fillEditor(selectedDate);
+      renderLegend();
+      persistLocal();
+      migrateLocalBtn.style.display = hasLocalSnapshot() ? 'inline-flex' : 'none';
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function colourToHex(colour) {
+      if (!colour) return '#4cc9f0';
+      if (colour.startsWith('#')) return colour;
+      const temp = document.createElement('div');
+      temp.style.color = colour;
+      document.body.appendChild(temp);
+      const rgb = getComputedStyle(temp).color;
+      temp.remove();
+      const match = rgb.match(/(\d+),\s*(\d+),\s*(\d+)/);
+      if (!match) return '#4cc9f0';
+      return '#' + match.slice(1).map(v => Number(v).toString(16).padStart(2, '0')).join('');
+    }
+
+    authForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!supabaseReady) {
+        showAuthBanner('supabase-config.js is missing or incomplete.', 'error');
+        return;
+      }
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) showAuthBanner(error.message, 'error');
+    });
+
+    signupBtn.addEventListener('click', async () => {
+      if (!supabaseReady) {
+        showAuthBanner('supabase-config.js is missing or incomplete.', 'error');
+        return;
+      }
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const { error } = await supabaseClient.auth.signUp({ email, password });
+      if (error) {
+        showAuthBanner(error.message, 'error');
+        return;
+      }
+      showAuthBanner('Registration submitted. Approve this user in Supabase before they can access the app.', 'success');
+    });
+
+    logoutBtn.addEventListener('click', async () => {
+      if (supabaseReady) await supabaseClient.auth.signOut();
+    });
+
+    migrateLocalBtn.addEventListener('click', () => {
+      migrateLocalDataToCloud().catch(error => {
+        console.error(error);
+        showAppBanner('Could not upload local data to Supabase.', 'error');
+      });
+    });
+
+    adminUsersBody.addEventListener('click', async e => {
+      const approveId = e.target.getAttribute('data-approve');
+      const adminId = e.target.getAttribute('data-admin');
+      if (!approveId && !adminId) return;
+      if (!isAdmin) return;
+
+      try {
+        if (approveId) {
+          const row = [...adminUsersBody.querySelectorAll('button[data-approve]')]
+            .find(btn => btn.getAttribute('data-approve') === approveId);
+          const removeAccess = row && row.textContent === 'Remove access';
+          await updateUserApproval(approveId, { approved: !removeAccess });
+          await refreshAdminPanel(removeAccess ? 'Access removed.' : 'User approved.');
+        }
+
+        if (adminId) {
+          const row = [...adminUsersBody.querySelectorAll('button[data-admin]')]
+            .find(btn => btn.getAttribute('data-admin') === adminId);
+          const removeAdmin = row && row.textContent === 'Remove admin';
+          await updateUserApproval(adminId, { is_admin: !removeAdmin });
+          await refreshAdminPanel(removeAdmin ? 'Admin rights removed.' : 'Admin rights granted.');
+        }
+      } catch (error) {
+        console.error(error);
+        showAdminBanner('That update could not be saved.', 'error');
+      }
+    });
+
+    document.getElementById('saveBtn').addEventListener('click', saveEditor);
+    document.getElementById('clearBtn').addEventListener('click', clearEditor);
+    document.getElementById('duplicatePrevBtn').addEventListener('click', copyPreviousDay);
+    document.getElementById('copyMonthBtn').addEventListener('click', copyMonthToNextMonth);
+    document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFileInput').click());
+    document.getElementById('importFileInput').addEventListener('change', e => {
+      importRosterWorkbook(e.target.files?.[0]);
+      e.target.value = '';
+    });
+    document.getElementById('exportBtn').addEventListener('click', exportMonthSpreadsheet);
+    document.getElementById('printBtn').addEventListener('click', () => window.print());
+    document.getElementById('prevMonthBtn').addEventListener('click', () => changeMonth(-1));
+    document.getElementById('nextMonthBtn').addEventListener('click', () => changeMonth(1));
+    document.getElementById('todayBtn').addEventListener('click', () => {
+      autosaveCurrentEditor(false);
+      const today = formatYMD(new Date());
+      normaliseRecord(today);
+      fillEditor(today);
+    });
+    document.getElementById('resetBtn').addEventListener('click', async () => {
+      if (!confirm('Reset all saved edits and go back to the original imported roster?')) return;
+      state = structuredClone(seedData);
+      customStaff = [];
+      staffList = buildStaffList(customStaff);
+      colourMap = {};
+      ensureColours(colourMap, staffList);
+      selectedDate = state[0]?.date || formatYMD(new Date());
+      selectedMonth = selectedDate.slice(0, 7);
+
+      if (supabaseReady && user && isApproved) {
+        try {
+          await replaceCloudSnapshot(state, customStaff, colourMap);
+          showAppBanner('Saved roster reset locally and in Supabase.', 'success');
+        } catch (error) {
+          console.error(error);
+          persistLocal();
+          showAppBanner('Local reset completed, but Supabase reset failed.', 'error');
+        }
+      } else {
+        persist();
+      }
+
+      refreshAll();
+    });
+
+    document.getElementById('addStaffBtn').addEventListener('click', () => {
+      const input = document.getElementById('newStaffInput');
+      const name = cleanName(input.value);
+      if (!name) return;
+      if (!staffList.includes(name)) {
+        customStaff.push(name);
+        customStaff = dedupeSortedNames(customStaff);
+        staffList = buildStaffList(customStaff);
+        colourMap[name] = colourForName(name);
+        persist();
+        refreshAll();
+      }
+      input.value = '';
+    });
+
+    document.getElementById('sortStaffBtn').addEventListener('click', () => {
+      customStaff = dedupeSortedNames(customStaff);
+      staffList = buildStaffList(customStaff);
+      persist();
+      refreshAll();
+    });
+
+    document.getElementById('rebuildColoursBtn').addEventListener('click', () => {
+      colourMap = {};
+      ensureColours(colourMap, staffList);
+      persist();
+      refreshAll();
+    });
+
+    monthSelect.addEventListener('change', () => {
+      autosaveCurrentEditor(false);
+      updateSelectedMonthFromControls();
+      const firstDay = getDaysInMonth(selectedMonth)[0];
+      fillEditor(selectedDate.startsWith(selectedMonth) ? selectedDate : firstDay);
+    });
+
+    yearInput.addEventListener('change', () => {
+      autosaveCurrentEditor(false);
+      updateSelectedMonthFromControls();
+      const firstDay = getDaysInMonth(selectedMonth)[0];
+      fillEditor(selectedDate.startsWith(selectedMonth) ? selectedDate : firstDay);
+    });
+
+    dateInput.addEventListener('change', e => fillEditor(e.target.value));
+
+    formFields.addEventListener('change', () => autosaveCurrentEditor(true));
+    formFields.addEventListener('input', () => autosaveCurrentEditor(true));
+    notesInput.addEventListener('input', () => autosaveCurrentEditor(true));
+    window.addEventListener('beforeunload', () => autosaveCurrentEditor(false));
+
+    staffFilter.addEventListener('change', e => {
+      staffFilter.dataset.keep = e.target.value;
+      renderCalendar();
+    });
+
+    shiftFilter.addEventListener('change', e => {
+      shiftFilter.dataset.keep = e.target.value;
+      renderCalendar();
+    });
+
+    textFilter.addEventListener('input', renderCalendar);
+    document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+      staffFilter.dataset.keep = '';
+      shiftFilter.dataset.keep = 'all';
+      textFilter.value = '';
+      renderFilters();
+      renderCalendar();
+    });
+
+    monthSelect.innerHTML = monthOptionsHtml();
+    syncStaffFromState();
+    renderFilters();
+    renderFormFields();
+    renderLegend();
+    const safeNow = new Date();
+    if (!selectedDate || parseYMD(selectedDate).getFullYear() < 2000) {
+      selectedDate = formatYMD(safeNow);
+      selectedMonth = selectedDate.slice(0, 7);
+    }
+    fillEditor(selectedDate);
+
+    if (supabaseReady) {
+      supabaseClient.auth.onAuthStateChange((_event, session) => {
+        handleSession(session).catch(error => {
+          console.error(error);
+          setVisibility(false);
+          showAuthBanner('There was a problem loading your account from Supabase.', 'error');
+        });
+      });
+
+      supabaseClient.auth.getSession().then(({ data }) => {
+        handleSession(data.session).catch(error => {
+          console.error(error);
+          setVisibility(false);
+          showAuthBanner('There was a problem loading your account from Supabase.', 'error');
+        });
+      });
+    } else {
+      setVisibility(false);
+      showAuthBanner('Create supabase-config.js from the example file, then refresh this page.', 'warn');
+    }
+  </script>
+</body>
+</html>
