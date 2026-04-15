@@ -459,7 +459,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
-    const supabase = createClient('https://xqfxkbzmrxrfnbrcivbd.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZnhrYnptcnhyZm5icmNpdmJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxODkyODgsImV4cCI6MjA5MTc2NTI4OH0.VHEZ6Dmqu1Wor74Cyqg8QtsY9cCuXE4TxBmQt5Nq-m0');
+    const supabaseClient = window.supabase.createClient('https://xqfxkbzmrxrfnbrcivbd.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZnhrYnptcnhyZm5icmNpdmJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxODkyODgsImV4cCI6MjA5MTc2NTI4OH0.VHEZ6Dmqu1Wor74Cyqg8QtsY9cCuXE4TxBmQt5Nq-m0');
 
     let user = null;
 
@@ -475,7 +475,7 @@
       element.style.display = message ? 'block' : 'none';
     }
 
-    supabase.auth.onAuthStateChange((_event, session) => {
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
       user = session?.user || null;
       if (user) {
         document.getElementById('auth').style.display = 'none';
@@ -496,7 +496,7 @@
       e.preventDefault();
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
       if (error) {
         setStatusMessage(authMessage, error.message, 'error');
         return;
@@ -507,13 +507,13 @@
     signupBtn.addEventListener('click', async () => {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { error } = await supabaseClient.auth.signUp({ email, password });
       if (error) setStatusMessage(authMessage, error.message, 'error');
       else setStatusMessage(authMessage, 'Check your email for confirmation!', 'success');
     });
 
     document.getElementById('logoutBtn').addEventListener('click', async () => {
-      await supabase.auth.signOut();
+      await supabaseClient.auth.signOut();
     });
 
     async function loadData() {
@@ -658,7 +658,7 @@
     }
 
     async function loadStateCloud() {
-      const { data, error } = await supabase.from('rosters').select('*');
+      const { data, error } = await supabaseClient.from('rosters').select('*');
       if (error) throw error;
       return data ? data.map(r => { const {user_id, id, ...rest} = r; return rest; }) : [];
     }
@@ -678,7 +678,7 @@
     }
 
     async function loadCustomStaffCloud() {
-      const { data, error } = await supabase.from('custom_staff').select('names').single();
+      const { data, error } = await supabaseClient.from('custom_staff').select('names').single();
       if (error && error.code !== 'PGRST116') throw error;
       return data ? dedupeSortedNames(data.names) : [];
     }
@@ -695,7 +695,7 @@
     }
 
     async function loadColourMapCloud() {
-      const { data, error } = await supabase.from('colours').select('*');
+      const { data, error } = await supabaseClient.from('colours').select('*');
       if (error) throw error;
       const map = {};
       if (data) data.forEach(c => map[c.name] = c.colour);
@@ -710,11 +710,11 @@
 
     async function persistCloud() {
       if (!user) return;
-      const { error: rosterError } = await supabase.from('rosters').upsert(state.map(r => ({...r, user_id: user.id})));
+      const { error: rosterError } = await supabaseClient.from('rosters').upsert(state.map(r => ({...r, user_id: user.id})));
       if (rosterError) throw rosterError;
-      const { error: staffError } = await supabase.from('custom_staff').upsert({user_id: user.id, names: customStaff});
+      const { error: staffError } = await supabaseClient.from('custom_staff').upsert({user_id: user.id, names: customStaff});
       if (staffError) throw staffError;
-      const { error: colourError } = await supabase.from('colours').upsert(Object.entries(colourMap).map(([name, colour]) => ({user_id: user.id, name, colour})));
+      const { error: colourError } = await supabaseClient.from('colours').upsert(Object.entries(colourMap).map(([name, colour]) => ({user_id: user.id, name, colour})));
       if (colourError) throw colourError;
     }
 
