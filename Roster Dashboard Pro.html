@@ -170,6 +170,7 @@
       display:inline-flex; align-items:center; gap:6px;
       padding:4px 8px; border-radius:999px;
       font-size: .72rem; border:1px solid transparent;
+      font-weight: 600;
       background: rgba(43, 36, 29, .08);
     }
     .dot {
@@ -177,10 +178,28 @@
       border: 1px solid rgba(255,255,255,.18);
     }
     .day-footer { margin-top:auto; display:flex; flex-wrap:wrap; gap:6px; }
-    .tag { font-size:.7rem; padding:4px 8px; border-radius:999px; }
-    .holiday { background: rgba(248,113,113,.14); color:#fecaca; }
-    .meeting { background: rgba(245,158,11,.15); color:#fde68a; }
-    .feed { background: rgba(52,211,153,.15); color:#bbf7d0; }
+    .tag {
+      font-size:.7rem;
+      padding:4px 8px;
+      border-radius:999px;
+      border: 1px solid transparent;
+      font-weight: 600;
+    }
+    .holiday {
+      background: rgba(248,113,113,.18);
+      color:#7f1d1d;
+      border-color: rgba(185, 28, 28, .18);
+    }
+    .meeting {
+      background: rgba(245,158,11,.2);
+      color:#78350f;
+      border-color: rgba(180, 83, 9, .2);
+    }
+    .feed {
+      background: rgba(52,211,153,.2);
+      color:#14532d;
+      border-color: rgba(5, 150, 105, .2);
+    }
     .small { font-size: .8rem; }
     .muted { color: var(--muted); }
     .legend { display:flex; gap:8px; flex-wrap:wrap; margin-top: 10px; }
@@ -1265,7 +1284,9 @@
       staffList.forEach(name => {
         const chip = document.createElement('span');
         chip.className = 'chip';
-        chip.innerHTML = `<span class="dot" style="background:${colourMap[name]}"></span>${escapeHtml(name)} <input type="color" value="${colourToHex(colourMap[name])}" title="Choose colour for ${escapeHtml(name)}" aria-label="Choose colour for ${escapeHtml(name)}">`;
+        const chipColour = colourMap[name] || colourForName(name);
+        chip.setAttribute('style', staffChipStyle(chipColour));
+        chip.innerHTML = `<span class="dot" style="background:${chipColour}"></span>${escapeHtml(name)} <input type="color" value="${colourToHex(chipColour)}" title="Choose colour for ${escapeHtml(name)}" aria-label="Choose colour for ${escapeHtml(name)}">`;
         const picker = chip.querySelector('input[type="color"]');
         picker.addEventListener('click', e => e.stopPropagation());
         picker.addEventListener('input', e => {
@@ -1342,7 +1363,9 @@
           chips.forEach(name => {
             const chip = document.createElement('span');
             chip.className = 'chip';
-            chip.innerHTML = `<span class="dot" style="background:${colourMap[name] || colourForName(name)}"></span>${escapeHtml(name)}`;
+            const chipColour = colourMap[name] || colourForName(name);
+            chip.setAttribute('style', staffChipStyle(chipColour));
+            chip.innerHTML = `<span class="dot" style="background:${chipColour}"></span>${escapeHtml(name)}`;
             chipWrap.appendChild(chip);
           });
           day.appendChild(chipWrap);
@@ -1636,6 +1659,33 @@
       const match = rgb.match(/(\d+),\s*(\d+),\s*(\d+)/);
       if (!match) return '#111111';
       return '#' + match.slice(1).map(v => Number(v).toString(16).padStart(2, '0')).join('');
+    }
+
+    function hexToRgb(hex) {
+      const value = colourToHex(hex).replace('#', '');
+      return {
+        r: parseInt(value.slice(0, 2), 16),
+        g: parseInt(value.slice(2, 4), 16),
+        b: parseInt(value.slice(4, 6), 16)
+      };
+    }
+
+    function rgbaFromHex(colour, alpha) {
+      const { r, g, b } = hexToRgb(colour);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function readableTextFor(colour) {
+      const { r, g, b } = hexToRgb(colour);
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      return brightness > 150 ? '#171311' : '#fffdf8';
+    }
+
+    function staffChipStyle(colour) {
+      const text = readableTextFor(colour);
+      const border = rgbaFromHex(colour, 0.35);
+      const background = rgbaFromHex(colour, text === '#171311' ? 0.26 : 0.34);
+      return `background:${background};border-color:${border};color:${text};`;
     }
 
     authForm.addEventListener('submit', async e => {
