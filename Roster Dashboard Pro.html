@@ -1328,6 +1328,11 @@
         const dateObj = parseYMD(rec.date);
         const isMatch = matchesFilters(rec);
         const chips = personChips(rec, shiftFilter.value);
+        const detailSummary = [
+          (rec.holiday || '').trim() ? `Holiday: ${rec.holiday}` : '',
+          (rec.training_other || '').trim() ? `Meeting / other: ${rec.training_other}` : '',
+          (rec.notes || '').trim() ? `Notes: ${rec.notes}` : ''
+        ].filter(Boolean).join('\n');
         const day = document.createElement('div');
         day.className = 'day' + (rec.date === selectedDate ? ' selected' : '') + (isMatch ? '' : ' dimmed');
         day.onclick = () => fillEditor(rec.date);
@@ -1340,19 +1345,22 @@
             <div class="day-num">${dateObj.getDate()}</div>
             <div class="day-sub">${dateObj.toLocaleDateString('en-GB', { weekday: 'short' })}</div>
           </div>
-          ${noteCount ? `<span class="pill">${noteCount} detail${noteCount > 1 ? 's' : ''}</span>` : ''}
+          ${noteCount ? `<span class="pill" title="${escapeHtml(detailSummary)}">${noteCount} detail${noteCount > 1 ? 's' : ''}</span>` : ''}
         `;
         day.appendChild(top);
 
         [
           ['am_milk', 'AM Milk', rec.am_milk],
           ['am_yard', 'AM Yard', rec.am_yard],
+          ['pm_yard', 'PM Yard', rec.pm_yard],
           ['pm_milk', 'PM Milk', rec.pm_milk],
-          ['night_milk', 'Night Milk', rec.night_milk]
+          ['night_milk', 'Night Milk', rec.night_milk],
+          ['night_yard', 'Night Yard', rec.night_yard]
         ].forEach(([, label, value]) => {
           if (!value) return;
           const line = document.createElement('div');
           line.className = 'line';
+          line.title = `${label}: ${value}`;
           line.innerHTML = `<strong>${label}:</strong> ${escapeHtml(value)}`;
           day.appendChild(line);
         });
@@ -1365,6 +1373,7 @@
             chip.className = 'chip';
             const chipColour = colourMap[name] || colourForName(name);
             chip.setAttribute('style', staffChipStyle(chipColour));
+            chip.title = name;
             chip.innerHTML = `<span class="dot" style="background:${chipColour}"></span>${escapeHtml(name)}`;
             chipWrap.appendChild(chip);
           });
@@ -1373,9 +1382,9 @@
 
         const footer = document.createElement('div');
         footer.className = 'day-footer';
-        if ((rec.holiday || '').trim()) footer.innerHTML += `<span class="tag holiday">Holiday: ${escapeHtml(rec.holiday)}</span>`;
-        if ((rec.training_other || '').trim()) footer.innerHTML += `<span class="tag meeting">Meeting / other</span>`;
-        if ((rec.y_feed || '').trim()) footer.innerHTML += `<span class="tag feed">Y. Feed: ${escapeHtml(rec.y_feed)}</span>`;
+        if ((rec.holiday || '').trim()) footer.innerHTML += `<span class="tag holiday" title="${escapeHtml(`Holiday: ${rec.holiday}`)}">Holiday: ${escapeHtml(rec.holiday)}</span>`;
+        if ((rec.training_other || '').trim()) footer.innerHTML += `<span class="tag meeting" title="${escapeHtml(`Meeting / other: ${rec.training_other}`)}">Meeting / other</span>`;
+        if ((rec.y_feed || '').trim()) footer.innerHTML += `<span class="tag feed" title="${escapeHtml(`Y. Feed: ${rec.y_feed}`)}">Y. Feed: ${escapeHtml(rec.y_feed)}</span>`;
         day.appendChild(footer);
 
         if ((rec.notes || '').trim()) {
