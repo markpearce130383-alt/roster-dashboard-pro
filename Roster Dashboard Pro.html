@@ -51,7 +51,23 @@
       border-radius: 20px;
       box-shadow: var(--shadow);
     }
-    .hero { padding: 22px; }
+    .hero {
+      padding: 22px;
+      position: relative;
+      overflow: hidden;
+      min-height: 112px;
+    }
+    .hero-copy { position: relative; z-index: 1; max-width: calc(100% - 180px); }
+    .hero-cow {
+      position: absolute;
+      right: 22px;
+      top: 18px;
+      font-size: 4.6rem;
+      line-height: 1;
+      filter: drop-shadow(0 10px 18px rgba(23, 19, 17, .14));
+      pointer-events: none;
+      user-select: none;
+    }
     .hero h1 { margin: 0 0 8px; font-size: 2rem; }
     .hero p { margin: 0; color: var(--muted); line-height: 1.45; }
     .controls { padding: 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
@@ -154,13 +170,51 @@
       background: rgba(43, 36, 29, .08);
       white-space: nowrap;
     }
+    .has-tooltip { position: relative; }
+    .has-tooltip:hover::after,
+    .has-tooltip:focus-visible::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 10px);
+      transform: translateX(-50%);
+      min-width: 140px;
+      max-width: 260px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(23, 19, 17, 0.96);
+      color: #fffdf8;
+      border: 1px solid rgba(255, 250, 242, .14);
+      box-shadow: 0 14px 30px rgba(23, 19, 17, .2);
+      font-size: .74rem;
+      line-height: 1.35;
+      white-space: pre-wrap;
+      text-align: left;
+      z-index: 20;
+      pointer-events: none;
+    }
+    .has-tooltip:hover::before,
+    .has-tooltip:focus-visible::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 4px);
+      width: 10px;
+      height: 10px;
+      background: rgba(23, 19, 17, 0.96);
+      border-right: 1px solid rgba(255, 250, 242, .14);
+      border-bottom: 1px solid rgba(255, 250, 242, .14);
+      transform: translateX(-50%) rotate(45deg);
+      z-index: 19;
+      pointer-events: none;
+    }
     .line {
       font-size: .78rem;
       line-height: 1.35;
       padding: 7px 8px;
       border-radius: 11px;
       background: rgba(43, 36, 29, .09);
-      overflow: hidden;
+      overflow: visible;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -350,8 +404,11 @@
     <div class="wrap">
       <div class="topbar">
         <div class="panel hero">
-          <h1>Roster Dashboard Pro</h1>
-          <div class="hero-meta" id="userStatus">Not signed in</div>
+          <div class="hero-copy">
+            <h1>Roster Dashboard Pro</h1>
+            <div class="hero-meta" id="userStatus">Not signed in</div>
+          </div>
+          <span class="hero-cow" aria-hidden="true">🐮</span>
           <div class="top-actions">
             <button id="migrateLocalBtn" class="ghost" style="display:none;">Upload local browser data to cloud</button>
             <button id="logoutBtn" class="ghost">Logout</button>
@@ -1345,8 +1402,10 @@
             <div class="day-num">${dateObj.getDate()}</div>
             <div class="day-sub">${dateObj.toLocaleDateString('en-GB', { weekday: 'short' })}</div>
           </div>
-          ${noteCount ? `<span class="pill" title="${escapeHtml(detailSummary)}">${noteCount} detail${noteCount > 1 ? 's' : ''}</span>` : ''}
+          ${noteCount ? `<span class="pill">${noteCount} detail${noteCount > 1 ? 's' : ''}</span>` : ''}
         `;
+        const detailPill = top.querySelector('.pill');
+        if (detailPill) setTooltip(detailPill, detailSummary);
         day.appendChild(top);
 
         [
@@ -1360,7 +1419,7 @@
           if (!value) return;
           const line = document.createElement('div');
           line.className = 'line';
-          line.title = `${label}: ${value}`;
+          setTooltip(line, `${label}: ${value}`);
           line.innerHTML = `<strong>${label}:</strong> ${escapeHtml(value)}`;
           day.appendChild(line);
         });
@@ -1373,7 +1432,7 @@
             chip.className = 'chip';
             const chipColour = colourMap[name] || colourForName(name);
             chip.setAttribute('style', staffChipStyle(chipColour));
-            chip.title = name;
+            setTooltip(chip, name);
             chip.innerHTML = `<span class="dot" style="background:${chipColour}"></span>${escapeHtml(name)}`;
             chipWrap.appendChild(chip);
           });
@@ -1382,9 +1441,13 @@
 
         const footer = document.createElement('div');
         footer.className = 'day-footer';
-        if ((rec.holiday || '').trim()) footer.innerHTML += `<span class="tag holiday" title="${escapeHtml(`Holiday: ${rec.holiday}`)}">Holiday: ${escapeHtml(rec.holiday)}</span>`;
-        if ((rec.training_other || '').trim()) footer.innerHTML += `<span class="tag meeting" title="${escapeHtml(`Meeting / other: ${rec.training_other}`)}">Meeting / other</span>`;
-        if ((rec.y_feed || '').trim()) footer.innerHTML += `<span class="tag feed" title="${escapeHtml(`Y. Feed: ${rec.y_feed}`)}">Y. Feed: ${escapeHtml(rec.y_feed)}</span>`;
+        if ((rec.holiday || '').trim()) footer.innerHTML += `<span class="tag holiday">Holiday: ${escapeHtml(rec.holiday)}</span>`;
+        if ((rec.training_other || '').trim()) footer.innerHTML += `<span class="tag meeting">Meeting / other</span>`;
+        if ((rec.y_feed || '').trim()) footer.innerHTML += `<span class="tag feed">Y. Feed: ${escapeHtml(rec.y_feed)}</span>`;
+        const footerTags = footer.querySelectorAll('.tag');
+        if (footerTags[0] && (rec.holiday || '').trim()) setTooltip(footerTags[0], `Holiday: ${rec.holiday}`);
+        if (footerTags[1] && (rec.training_other || '').trim()) setTooltip(footerTags[1], `Meeting / other: ${rec.training_other}`);
+        if (footerTags[2] && (rec.y_feed || '').trim()) setTooltip(footerTags[2], `Y. Feed: ${rec.y_feed}`);
         day.appendChild(footer);
 
         if ((rec.notes || '').trim()) {
@@ -1396,6 +1459,12 @@
 
         calendarGrid.appendChild(day);
       });
+    }
+
+    function setTooltip(element, text) {
+      if (!element || !text) return;
+      element.classList.add('has-tooltip');
+      element.dataset.tooltip = String(text);
     }
 
     function copyMonthToNextMonth() {
