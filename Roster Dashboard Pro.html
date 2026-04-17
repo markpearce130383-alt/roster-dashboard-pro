@@ -344,6 +344,7 @@
         <div class="hero-copy">
           <h1>Roster Dashboard Pro</h1>
           <div id="syncStatus" class="status-banner" data-tone="info"></div>
+          <div id="accountStatus" class="status-banner" data-tone="info"></div>
         </div>
         <span class="hero-cow" aria-hidden="true">🐮</span>
         <button id="logoutBtn" class="ghost" style="position: absolute; top: 22px; right: 22px;">Logout</button>
@@ -398,7 +399,7 @@
           <button id="sortStaffBtn" class="ghost">Sort staff list</button>
           <button id="rebuildColoursBtn" class="ghost">Refresh colours</button>
         </div>
-        <div class="notice">Only your approved list plus names you manually add are shown in the dropdowns. Imported names do not automatically get added.</div>
+        <div class="notice">Only the shared staff list plus names admins manually add are shown in the dropdowns. Imported names do not automatically get added.</div>
 
         <div class="section-title">Shift entry</div>
         <div class="grid2" id="formFields"></div>
@@ -414,7 +415,7 @@
           <button id="clearBtn">Clear day</button>
         </div>
         <div class="helper">
-          Use the <strong>+</strong> button beside a shift to add another person quickly. Click any day in the calendar to edit it. Choose any month and any year, upload a roster spreadsheet in the same format as your original file, and your changes will save in this browser and sync to Supabase automatically when you are signed in.
+          Use the <strong>+</strong> button beside a shift to add another person quickly. Click any day in the calendar to view it. Admins can import and edit the shared roster for everyone, while non-admin accounts stay read only.
         </div>
       </div>
 
@@ -460,6 +461,12 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
     const supabaseClient = window.supabase.createClient('https://xqfxkbzmrxrfnbrcivbd.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZnhrYnptcnhyZm5icmNpdmJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxODkyODgsImV4cCI6MjA5MTc2NTI4OH0.VHEZ6Dmqu1Wor74Cyqg8QtsY9cCuXE4TxBmQt5Nq-m0');
+    const TABLES = {
+      approvals: 'approved_users',
+      rosters: 'shared_rosters',
+      customStaff: 'shared_custom_staff',
+      colours: 'shared_colours'
+    };
 
     let user = null;
 
@@ -467,6 +474,9 @@
     const signupBtn = document.getElementById('signupBtn');
     const authMessage = document.getElementById('authMessage');
     const syncStatus = document.getElementById('syncStatus');
+    const accountStatus = document.getElementById('accountStatus');
+    let approvalState = null;
+    let persistQueue = Promise.resolve();
 
     function setStatusMessage(element, message = '', tone = 'info') {
       if (!element) return;
@@ -477,18 +487,22 @@
 
     supabaseClient.auth.onAuthStateChange((_event, session) => {
       user = session?.user || null;
+      persistQueue = Promise.resolve();
       if (user) {
         document.getElementById('auth').style.display = 'none';
         document.getElementById('app').style.display = 'block';
         setStatusMessage(authMessage);
+        setStatusMessage(accountStatus, `Signed in as ${user.email || 'this account'}. Checking your access to the shared roster...`, 'info');
         loadData().catch(error => {
           console.error(error);
-          setStatusMessage(syncStatus, 'Could not load your roster from Supabase.', 'error');
+          setStatusMessage(syncStatus, describeSyncError(error, 'load'), 'error');
         });
       } else {
         document.getElementById('auth').style.display = 'flex';
         document.getElementById('app').style.display = 'none';
         setStatusMessage(syncStatus);
+        setStatusMessage(accountStatus);
+        approvalState = null;
       }
     });
 
@@ -501,7 +515,7 @@
         setStatusMessage(authMessage, error.message, 'error');
         return;
       }
-      setStatusMessage(authMessage, 'Signed in. Loading your roster from Supabase...', 'info');
+      setStatusMessage(authMessage, 'Signed in. Loading the shared roster from Supabase...', 'info');
     });
 
     signupBtn.addEventListener('click', async () => {
@@ -522,7 +536,26 @@
       const localColourMap = loadColourMapLocal();
       const hasLocalData = localState.length || localCustomStaff.length || Object.keys(localColourMap).length;
 
-      setStatusMessage(syncStatus, 'Loading your roster from Supabase...', 'info');
+      approvalState = await loadApprovalStatus();
+      setStatusMessage(accountStatus, buildAccountStatusMessage(), approvalState?.approved === false ? 'error' : 'info');
+
+      if (approvalState?.approved === false) {
+        customStaff = [];
+        staffList = buildStaffList(customStaff);
+        colourMap = {};
+        ensureColours(colourMap, staffList);
+        state = structuredClone(seedData);
+        setStatusMessage(syncStatus, 'This account is waiting for approval in Supabase and cannot open the shared roster yet.', 'error');
+        selectedDate = formatYMD(getSafeInitialDate(state[0]?.date));
+        selectedMonth = selectedDate.slice(0,7);
+        renderFilters();
+        renderFormFields();
+        renderLegend();
+        fillEditor(selectedDate);
+        return;
+      }
+
+      setStatusMessage(syncStatus, 'Loading the shared roster from Supabase...', 'info');
 
       try {
         const [cloudCustomStaff, cloudColourMap, cloudState] = await Promise.all([
@@ -540,8 +573,10 @@
           ensureColours(colourMap, staffList);
           state = cloudState;
           persistLocal();
-          setStatusMessage(syncStatus, 'Loaded your roster from Supabase. Changes now sync automatically.', 'success');
-        } else if (hasLocalData) {
+          setStatusMessage(syncStatus, canEditRoster()
+            ? 'Loaded the shared roster from Supabase. Admin changes sync for all users.'
+            : 'Loaded the shared roster from Supabase. This account is in read-only mode.', 'success');
+        } else if (hasLocalData && canEditRoster()) {
           customStaff = localCustomStaff;
           staffList = buildStaffList(customStaff);
           colourMap = localColourMap;
@@ -549,15 +584,21 @@
           state = localState;
           await persistCloud();
           persistLocal();
-          setStatusMessage(syncStatus, 'Your local roster was uploaded to Supabase automatically. Changes now sync automatically.', 'success');
+          setStatusMessage(syncStatus, 'Your cached shared roster was uploaded to Supabase automatically. Admin changes now sync for all users.', 'success');
         } else {
           customStaff = [];
           staffList = buildStaffList(customStaff);
           colourMap = {};
           ensureColours(colourMap, staffList);
           state = structuredClone(seedData);
-          persistLocal();
-          setStatusMessage(syncStatus, 'Cloud sync is active. New changes will save to Supabase automatically.', 'success');
+          if (canEditRoster()) persistLocal();
+          setStatusMessage(
+            syncStatus,
+            canEditRoster()
+              ? 'Cloud sync is active. Import or edit the shared roster and it will sync for all users.'
+              : 'No shared roster has been created in Supabase yet. Ask an admin to import or edit it.',
+            canEditRoster() ? 'success' : 'info'
+          );
         }
       } catch (error) {
         console.error(error);
@@ -566,7 +607,7 @@
         colourMap = localColourMap;
         ensureColours(colourMap, staffList);
         state = localState;
-        setStatusMessage(syncStatus, 'Supabase could not be reached, so the app is using your browser copy for now.', 'error');
+        setStatusMessage(syncStatus, describeSyncError(error, 'load'), 'error');
       }
 
       selectedDate = formatYMD(getSafeInitialDate(state[0]?.date));
@@ -652,15 +693,81 @@
     const textFilter = document.getElementById('textFilter');
     const legend = document.getElementById('legend');
 
+    function canEditRoster() {
+      return approvalState?.approved === true && approvalState?.is_admin === true;
+    }
+
+    function parseStoredJson(raw, fallbackValue) {
+      if (!raw) return fallbackValue;
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return fallbackValue;
+      }
+    }
+
+    function readLocalStorageValue(baseKey) {
+      return localStorage.getItem(baseKey);
+    }
+
+    function writeLocalStorageValue(baseKey, value) {
+      localStorage.setItem(baseKey, JSON.stringify(value));
+    }
+
+    function buildCloudSnapshot() {
+      return {
+        userId: user?.id || null,
+        state: state.map(record => ({ ...record })),
+        customStaff: [...customStaff],
+        colourMap: { ...colourMap }
+      };
+    }
+
+    function describeSyncError(error, action = 'save') {
+      const text = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ').toLowerCase();
+      if (approvalState?.approved === false || error?.code === '42501' || /row-level security|permission denied|not approved|forbidden/.test(text)) {
+        if (approvalState?.approved === true && approvalState?.is_admin !== true) {
+          return action === 'load'
+            ? 'This account has read-only access to the shared roster.'
+            : 'This account is read only. Only admins can change the shared roster.';
+        }
+        return action === 'load'
+          ? 'This account is not allowed to open the shared roster yet. An admin may still need to approve it.'
+          : 'This account is not allowed to change the shared roster. An admin may still need to approve or promote it.';
+      }
+      return action === 'load'
+        ? 'Could not load the shared roster from Supabase, so the app is using the browser cache for now.'
+        : 'Could not sync the shared roster to Supabase. Your latest admin edits are still saved in this browser.';
+    }
+
+    function buildAccountStatusMessage() {
+      if (!user) return '';
+      const email = user.email || 'this account';
+      if (approvalState?.approved === false) {
+        return `Signed in as ${email}. This account is waiting for approval and cannot open the shared roster yet.`;
+      }
+      if (approvalState?.approved !== true) {
+        return `Signed in as ${email}. Your role could not be verified from Supabase, so the shared roster is in read-only mode until the connection comes back.`;
+      }
+      if (approvalState?.is_admin) {
+        return `Signed in as ${email}. You can edit the shared roster for everyone.`;
+      }
+      return `Signed in as ${email}. You have read-only access. Admin changes to the shared roster show up for everyone.`;
+    }
+
     function loadStateLocal() {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : structuredClone(seedData);
+      const raw = readLocalStorageValue(STORAGE_KEY);
+      const parsed = parseStoredJson(raw, null);
+      return Array.isArray(parsed) ? parsed : structuredClone(seedData);
     }
 
     async function loadStateCloud() {
-      const { data, error } = await supabaseClient.from('rosters').select('*');
+      const { data, error } = await supabaseClient
+        .from(TABLES.rosters)
+        .select('*')
+        .order('date', { ascending: true });
       if (error) throw error;
-      return data ? data.map(r => { const {user_id, id, ...rest} = r; return rest; }) : [];
+      return data ? data.map(r => { const {updated_by, id, created_at, updated_at, ...rest} = r; return rest; }) : [];
     }
 
     function cleanName(value) {
@@ -672,14 +779,19 @@
     }
 
     function loadCustomStaffLocal() {
-      const raw = localStorage.getItem(CUSTOM_STAFF_KEY);
-      if (raw) return dedupeSortedNames(JSON.parse(raw));
+      const raw = readLocalStorageValue(CUSTOM_STAFF_KEY);
+      const parsed = parseStoredJson(raw, null);
+      if (Array.isArray(parsed)) return dedupeSortedNames(parsed);
       return [];
     }
 
     async function loadCustomStaffCloud() {
-      const { data, error } = await supabaseClient.from('custom_staff').select('names').single();
-      if (error && error.code !== 'PGRST116') throw error;
+      const { data, error } = await supabaseClient
+        .from(TABLES.customStaff)
+        .select('names')
+        .eq('id', 1)
+        .maybeSingle();
+      if (error) throw error;
       return data ? dedupeSortedNames(data.names) : [];
     }
 
@@ -688,14 +800,18 @@
     }
 
     function loadColourMapLocal() {
-      const raw = localStorage.getItem(COLOUR_KEY);
-      const existing = raw ? JSON.parse(raw) : {};
+      const raw = readLocalStorageValue(COLOUR_KEY);
+      const parsed = parseStoredJson(raw, {});
+      const existing = parsed && typeof parsed === 'object' ? parsed : {};
       ensureColours(existing, staffList);
       return existing;
     }
 
     async function loadColourMapCloud() {
-      const { data, error } = await supabaseClient.from('colours').select('*');
+      const { data, error } = await supabaseClient
+        .from(TABLES.colours)
+        .select('name, colour')
+        .order('name', { ascending: true });
       if (error) throw error;
       const map = {};
       if (data) data.forEach(c => map[c.name] = c.colour);
@@ -703,31 +819,96 @@
     }
 
     function persistLocal() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      localStorage.setItem(CUSTOM_STAFF_KEY, JSON.stringify(customStaff));
-      localStorage.setItem(COLOUR_KEY, JSON.stringify(colourMap));
+      writeLocalStorageValue(STORAGE_KEY, state);
+      writeLocalStorageValue(CUSTOM_STAFF_KEY, customStaff);
+      writeLocalStorageValue(COLOUR_KEY, colourMap);
     }
 
-    async function persistCloud() {
-      if (!user) return;
-      const { error: rosterError } = await supabaseClient.from('rosters').upsert(state.map(r => ({...r, user_id: user.id})));
-      if (rosterError) throw rosterError;
-      const { error: staffError } = await supabaseClient.from('custom_staff').upsert({user_id: user.id, names: customStaff});
+    async function loadApprovalStatus() {
+      if (!user) return null;
+      try {
+        const { data, error } = await supabaseClient
+          .from(TABLES.approvals)
+          .select('approved, is_admin, email')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (error) throw error;
+        return data;
+      } catch (error) {
+        console.warn('Could not load approval status from Supabase.', error);
+        return null;
+      }
+    }
+
+    async function syncKeyedRows(tableName, keyColumn, rows) {
+      const { data: existingRows, error: selectError } = await supabaseClient
+        .from(tableName)
+        .select(keyColumn);
+      if (selectError) throw selectError;
+
+      const nextKeys = new Set(rows.map(row => row[keyColumn]));
+      const staleKeys = (existingRows || [])
+        .map(row => row[keyColumn])
+        .filter(key => !nextKeys.has(key));
+
+      if (staleKeys.length) {
+        let deleteQuery = supabaseClient.from(tableName).delete();
+        deleteQuery = staleKeys.length === 1
+          ? deleteQuery.eq(keyColumn, staleKeys[0])
+          : deleteQuery.in(keyColumn, staleKeys);
+        const { error: deleteError } = await deleteQuery;
+        if (deleteError) throw deleteError;
+      }
+
+      if (!rows.length) return;
+      const { error: upsertError } = await supabaseClient.from(tableName).upsert(rows);
+      if (upsertError) throw upsertError;
+    }
+
+    async function persistCloud(snapshot = buildCloudSnapshot()) {
+      if (!snapshot?.userId) return;
+      await syncKeyedRows(TABLES.rosters, 'date', snapshot.state.map(record => ({ ...record, updated_by: snapshot.userId })));
+      const { error: staffError } = await supabaseClient
+        .from(TABLES.customStaff)
+        .upsert({ id: 1, names: snapshot.customStaff, updated_by: snapshot.userId });
       if (staffError) throw staffError;
-      const { error: colourError } = await supabaseClient.from('colours').upsert(Object.entries(colourMap).map(([name, colour]) => ({user_id: user.id, name, colour})));
-      if (colourError) throw colourError;
+      await syncKeyedRows(
+        TABLES.colours,
+        'name',
+        Object.entries(snapshot.colourMap).map(([name, colour]) => ({ name, colour, updated_by: snapshot.userId }))
+      );
     }
 
     async function persist() {
-      persistLocal();
       if (!user) return;
-      try {
-        await persistCloud();
+      if (!canEditRoster()) {
+        setStatusMessage(
+          syncStatus,
+          approvalState?.approved === false
+            ? 'This account is waiting for approval and cannot change the shared roster yet.'
+            : approvalState?.approved === true
+              ? 'This account is read only. Only admins can change the shared roster.'
+              : 'Your admin access could not be verified, so the shared roster is in read-only mode right now.',
+          approvalState?.approved === true ? 'info' : 'error'
+        );
+        return;
+      }
+
+      persistLocal();
+      const snapshot = buildCloudSnapshot();
+      const queuedPersist = persistQueue.catch(() => {}).then(async () => {
+        await persistCloud(snapshot);
         if (syncStatus.dataset.tone !== 'success') {
-          setStatusMessage(syncStatus, 'Cloud sync is active. Changes save automatically to Supabase.', 'success');
+          setStatusMessage(syncStatus, 'Cloud sync is active. Admin changes save to Supabase for all users.', 'success');
         }
+      });
+
+      persistQueue = queuedPersist;
+
+      try {
+        await queuedPersist;
       } catch (error) {
-        setStatusMessage(syncStatus, 'Could not sync to Supabase. Your latest edits are still saved in this browser.', 'error');
+        setStatusMessage(syncStatus, describeSyncError(error, 'save'), 'error');
         throw error;
       }
     }
@@ -779,9 +960,15 @@
       return days;
     }
 
-    function normaliseRecord(date) {
+    function normaliseRecord(date, createIfMissing = true) {
       let rec = state.find(r => r.date === date);
       if (!rec) {
+        if (!createIfMissing) {
+          rec = { date };
+          fields.forEach(([key]) => rec[key] = '');
+          rec.notes = eventMap[date] || '';
+          return rec;
+        }
         rec = { date };
         fields.forEach(([key]) => rec[key] = '');
         rec.notes = eventMap[date] || '';
@@ -835,6 +1022,8 @@
         input.setAttribute('data-field', fieldKey);
         input.value = cleanName(value);
         input.placeholder = 'Enter free text';
+        input.readOnly = !canEditRoster();
+        input.disabled = !canEditRoster();
         return input;
       }
       const select = document.createElement('select');
@@ -842,10 +1031,12 @@
       select.setAttribute('data-field', fieldKey);
       select.innerHTML = buildSelectOptions(true, value);
       select.value = cleanName(value);
+      select.disabled = !canEditRoster();
       return select;
     }
 
     function renderFormFields() {
+      const editable = canEditRoster();
       formFields.innerHTML = '';
       for (const [key, label] of fields) {
         const wrap = document.createElement('div');
@@ -866,6 +1057,8 @@
               <button class="tiny-btn" type="button" title="Add another person" data-add-slot="${key}">+</button>
             </div>`;
           formFields.appendChild(wrap);
+          wrap.querySelector('select.person-slot').disabled = !editable;
+          wrap.querySelector('[data-add-slot]').disabled = !editable;
         }
       }
       formFields.querySelectorAll('[data-add-slot]').forEach(btn => {
@@ -881,6 +1074,7 @@
       select.setAttribute('data-field', fieldKey);
       select.innerHTML = buildSelectOptions(true, value);
       select.value = cleanName(value);
+      select.disabled = !canEditRoster();
       wrap.insertBefore(select, wrap.lastElementChild);
     }
 
@@ -896,6 +1090,7 @@
       const firstSelect = wrap.querySelector('select.person-slot');
       firstSelect.innerHTML = buildSelectOptions(true, parts[0] || '');
       firstSelect.value = cleanName(parts[0] || '');
+      firstSelect.disabled = !canEditRoster();
       parts.slice(1).forEach(v => addPersonSlot(fieldKey, v));
     }
 
@@ -918,20 +1113,24 @@
     }
 
     function fillEditor(date) {
-      const rec = normaliseRecord(date);
+      const rec = normaliseRecord(date, false);
       dateInput.value = date;
       notesInput.value = rec.notes || '';
+      notesInput.readOnly = !canEditRoster();
+      notesInput.disabled = false;
       for (const [key] of fields) setFieldSlots(key, rec[key] || '');
       selectedDate = date;
       selectedMonth = date.slice(0,7);
       refreshMonthPicker();
       renderCalendar();
+      applyEditorAccessState();
     }
 
     function saveEditor() {
+      if (!canEditRoster()) return;
       const date = dateInput.value;
       if (!date) return;
-      const rec = normaliseRecord(date);
+      const rec = normaliseRecord(date, true);
       for (const [key] of fields) rec[key] = collectFieldValue(key);
       rec.notes = notesInput.value.trim();
       syncStaffFromState();
@@ -942,9 +1141,10 @@
     }
 
     function autosaveCurrentEditor(renderAfter = false) {
+      if (!canEditRoster()) return;
       const date = dateInput.value;
       if (!date) return;
-      const rec = normaliseRecord(date);
+      const rec = normaliseRecord(date, true);
       for (const [key] of fields) rec[key] = collectFieldValue(key);
       rec.notes = notesInput.value.trim();
       selectedDate = date;
@@ -957,9 +1157,10 @@
     }
 
     function clearEditor() {
+      if (!canEditRoster()) return;
       const date = dateInput.value;
       if (!date) return;
-      const rec = normaliseRecord(date);
+      const rec = normaliseRecord(date, true);
       fields.forEach(([key]) => rec[key] = '');
       rec.notes = eventMap[date] || '';
       fillEditor(date);
@@ -968,6 +1169,7 @@
     }
 
     function copyPreviousDay() {
+      if (!canEditRoster()) return;
       const date = dateInput.value;
       if (!date) return;
       const prev = parseYMD(date);
@@ -975,7 +1177,7 @@
       const prevDate = formatYMD(prev);
       const prevRec = state.find(r => r.date === prevDate);
       if (!prevRec) return;
-      const rec = normaliseRecord(date);
+      const rec = normaliseRecord(date, true);
       fields.forEach(([key]) => rec[key] = prevRec[key] || '');
       rec.notes = prevRec.notes || eventMap[date] || '';
       fillEditor(date);
@@ -1033,8 +1235,10 @@
         chip.setAttribute('style', staffChipStyle(chipColour));
         chip.innerHTML = `<span class="dot" style="background:${chipColour}"></span>${escapeHtml(name)} <input type="color" value="${colourToHex(chipColour)}" title="Choose colour for ${escapeHtml(name)}" aria-label="Choose colour for ${escapeHtml(name)}">`;
         const picker = chip.querySelector('input[type="color"]');
+        picker.disabled = !canEditRoster();
         picker.addEventListener('click', e => e.stopPropagation());
         picker.addEventListener('input', e => {
+          if (!canEditRoster()) return;
           colourMap[name] = e.target.value;
           persist().catch(console.error);
           renderLegend();
@@ -1055,7 +1259,7 @@
 
     function renderCalendar() {
       const days = getDaysInMonth(selectedMonth);
-      const monthRecords = days.map(date => normaliseRecord(date));
+      const monthRecords = days.map(date => normaliseRecord(date, false));
       const visibleCount = monthRecords.filter(matchesFilters).length;
       updateStats(monthRecords, visibleCount);
       refreshMonthPicker();
@@ -1154,9 +1358,10 @@
     }
 
     function copyMonthToNextMonth() {
+      if (!canEditRoster()) return;
       autosaveCurrentEditor(false);
       const sourceDays = getDaysInMonth(selectedMonth);
-      const sourceRecords = sourceDays.map(date => normaliseRecord(date));
+      const sourceRecords = sourceDays.map(date => normaliseRecord(date, false));
       const sourceDate = parseYMD(selectedMonth + '-01');
       const targetMonthDate = new Date(sourceDate.getFullYear(), sourceDate.getMonth() + 1, 1);
       const targetMonth = formatYM(targetMonthDate);
@@ -1179,7 +1384,7 @@
         const fallbackOccurrence = Math.max(...Object.keys(weekdayPattern).map(Number), 0);
         const srcRec = weekdayPattern[occurrence] || weekdayPattern[fallbackOccurrence];
         if (!srcRec) return;
-        const targetRec = normaliseRecord(targetDate);
+        const targetRec = normaliseRecord(targetDate, true);
         fields.forEach(([key]) => targetRec[key] = srcRec[key] || '');
         targetRec.notes = srcRec.notes || eventMap[targetDate] || '';
       });
@@ -1316,6 +1521,7 @@
     }
 
     function importRosterWorkbook(file) {
+      if (!canEditRoster()) return;
       if (!file) return;
       const reader = new FileReader();
       reader.onload = evt => {
@@ -1343,7 +1549,7 @@
     }
 
     function exportMonthSpreadsheet() {
-      const monthRecords = getDaysInMonth(selectedMonth).map(date => normaliseRecord(date));
+      const monthRecords = getDaysInMonth(selectedMonth).map(date => normaliseRecord(date, false));
       const monthTitle = monthLabel(selectedMonth);
       const headers = ['Date', 'AM Milk', 'AM Yard', 'AM Assist', 'AM TMR Feed', 'PM Milk', 'PM Yard', 'PM Assist', 'Night Check', 'Night Milk', 'Night Yard', 'Training / Meetings / Other', 'Holiday', 'Y. Feed', 'Notes'];
       const rows = monthRecords.map(r => [
@@ -1390,6 +1596,7 @@
       renderFormFields();
       fillEditor(selectedDate);
       renderLegend();
+      applyEditorAccessState();
       persist().catch(console.error);
     }
 
@@ -1448,11 +1655,37 @@
       return `background:${background};border-color:${border};color:${text};`;
     }
 
+    function applyEditorAccessState() {
+      const editable = canEditRoster();
+      document.getElementById('newStaffInput').disabled = !editable;
+      document.getElementById('saveBtn').disabled = !editable;
+      document.getElementById('clearBtn').disabled = !editable;
+      document.getElementById('duplicatePrevBtn').disabled = !editable;
+      document.getElementById('copyMonthBtn').disabled = !editable;
+      document.getElementById('importBtn').disabled = !editable;
+      document.getElementById('importFileInput').disabled = !editable;
+      document.getElementById('resetBtn').disabled = !editable;
+      document.getElementById('addStaffBtn').disabled = !editable;
+      document.getElementById('sortStaffBtn').disabled = !editable;
+      document.getElementById('rebuildColoursBtn').disabled = !editable;
+      notesInput.readOnly = !editable;
+      notesInput.disabled = false;
+      formFields.querySelectorAll('select.person-slot, input.text-slot, [data-add-slot]').forEach(control => {
+        control.disabled = !editable;
+      });
+      legend.querySelectorAll('input[type="color"]').forEach(picker => {
+        picker.disabled = !editable;
+      });
+    }
+
     document.getElementById('saveBtn').addEventListener('click', saveEditor);
     document.getElementById('clearBtn').addEventListener('click', clearEditor);
     document.getElementById('duplicatePrevBtn').addEventListener('click', copyPreviousDay);
     document.getElementById('copyMonthBtn').addEventListener('click', copyMonthToNextMonth);
-    document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFileInput').click());
+    document.getElementById('importBtn').addEventListener('click', () => {
+      if (!canEditRoster()) return;
+      document.getElementById('importFileInput').click();
+    });
     document.getElementById('importFileInput').addEventListener('change', e => {
       importRosterWorkbook(e.target.files?.[0]);
       e.target.value = '';
@@ -1464,10 +1697,10 @@
     document.getElementById('todayBtn').addEventListener('click', () => {
       autosaveCurrentEditor(false);
       const today = formatYMD(new Date());
-      normaliseRecord(today);
       fillEditor(today);
     });
     document.getElementById('resetBtn').addEventListener('click', () => {
+      if (!canEditRoster()) return;
       if (!confirm('Reset all saved edits and go back to the original imported roster?')) return;
       state = structuredClone(seedData);
       customStaff = [];
@@ -1481,6 +1714,7 @@
     });
 
     document.getElementById('addStaffBtn').addEventListener('click', () => {
+      if (!canEditRoster()) return;
       const input = document.getElementById('newStaffInput');
       const name = cleanName(input.value);
       if (!name) return;
@@ -1496,6 +1730,7 @@
     });
 
     document.getElementById('sortStaffBtn').addEventListener('click', () => {
+      if (!canEditRoster()) return;
       customStaff = dedupeSortedNames(customStaff);
       staffList = buildStaffList(customStaff);
       persist().catch(console.error);
@@ -1503,6 +1738,7 @@
     });
 
     document.getElementById('rebuildColoursBtn').addEventListener('click', () => {
+      if (!canEditRoster()) return;
       colourMap = {};
       ensureColours(colourMap, staffList);
       persist().catch(console.error);
@@ -1552,6 +1788,7 @@
     renderFilters();
     renderFormFields();
     renderLegend();
+    applyEditorAccessState();
     const safeNow = new Date();
     if (!selectedDate || parseYMD(selectedDate).getFullYear() < 2000) {
       selectedDate = formatYMD(safeNow);

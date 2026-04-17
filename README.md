@@ -2,6 +2,8 @@
 
 Static HTML roster app with Supabase authentication, approved-user access control, and cloud sync.
 
+Important: roster data is shared across approved users. Admins can edit the shared roster, while non-admin accounts are read only.
+
 ## Files
 
 - `Roster Dashboard Pro.html`: main app
@@ -17,10 +19,12 @@ Static HTML roster app with Supabase authentication, approved-user access contro
 4. Put your Supabase project URL and anon public key into `supabase-config.js`.
 5. Open `Roster Dashboard Pro.html` in a browser or serve the folder locally.
 
+If you already had an older per-user version of this app, run `supabase-setup.sql` again after pulling the latest files so it can create the shared tables and migrate the newest roster data.
+
 ## User approval
 
 Users can register in the app, but only approved users can access roster data.
-Admins can approve registrations inside the app.
+Admins can approve registrations in Supabase by updating the `approved_users` table.
 
 Make the first admin with:
 
@@ -32,7 +36,7 @@ set approved = true,
 where email = 'person@example.com';
 ```
 
-After that, that admin can sign into the app and approve other users from the approvals panel.
+After that, that admin can sign into the app and edit the shared roster for everyone else. Approved non-admin users will see the same roster in read-only mode.
 
 ## Security notes
 

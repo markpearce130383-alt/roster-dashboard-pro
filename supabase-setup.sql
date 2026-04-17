@@ -101,7 +101,23 @@ as $$
     select 1
     from public.approved_users
     where user_id = check_user
+      and approved = true
       and is_admin = true
+  );
+$$;
+
+create or replace function public.is_approved(check_user uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.approved_users
+    where user_id = check_user
+      and approved = true
   );
 $$;
 
@@ -226,6 +242,175 @@ with check (
       and au.approved = true
   )
 );
+
+-- Shared roster tables used by the current app.
+-- Re-run this file after deploying app updates to create these tables
+-- and migrate the newest data out of the older per-user tables.
+
+create table if not exists public.shared_rosters (
+  date date primary key,
+  am_milk text not null default '',
+  am_yard text not null default '',
+  am_assist text not null default '',
+  am_tmr_feed text not null default '',
+  pm_milk text not null default '',
+  pm_yard text not null default '',
+  pm_assist text not null default '',
+  night_check text not null default '',
+  night_milk text not null default '',
+  night_yard text not null default '',
+  training_other text not null default '',
+  holiday text not null default '',
+  y_feed text not null default '',
+  notes text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id) on delete set null
+);
+
+create table if not exists public.shared_custom_staff (
+  id integer primary key default 1 check (id = 1),
+  names text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id) on delete set null
+);
+
+create table if not exists public.shared_colours (
+  name text primary key,
+  colour text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id) on delete set null
+);
+
+alter table public.shared_rosters
+  add column if not exists updated_by uuid references auth.users(id) on delete set null;
+
+alter table public.shared_custom_staff
+  add column if not exists updated_by uuid references auth.users(id) on delete set null;
+
+alter table public.shared_colours
+  add column if not exists updated_by uuid references auth.users(id) on delete set null;
+
+drop trigger if exists shared_rosters_set_updated_at on public.shared_rosters;
+create trigger shared_rosters_set_updated_at
+before update on public.shared_rosters
+for each row
+execute function public.set_updated_at();
+
+drop trigger if exists shared_custom_staff_set_updated_at on public.shared_custom_staff;
+create trigger shared_custom_staff_set_updated_at
+before update on public.shared_custom_staff
+for each row
+execute function public.set_updated_at();
+
+drop trigger if exists shared_colours_set_updated_at on public.shared_colours;
+create trigger shared_colours_set_updated_at
+before update on public.shared_colours
+for each row
+execute function public.set_updated_at();
+
+insert into public.shared_rosters (
+  date, am_milk, am_yard, am_assist, am_tmr_feed,
+  pm_milk, pm_yard, pm_assist, night_check, night_milk, night_yard,
+  training_other, holiday, y_feed, notes, created_at, updated_at, updated_by
+)
+select distinct on (date)
+  date, am_milk, am_yard, am_assist, am_tmr_feed,
+  pm_milk, pm_yard, pm_assist, night_check, night_milk, night_yard,
+  training_other, holiday, y_feed, notes,
+  coalesce(created_at, now()),
+  coalesce(updated_at, now()),
+  user_id
+from public.rosters
+where not exists (
+  select 1
+  from public.shared_rosters
+)
+order by date, updated_at desc nulls last, created_at desc nulls last, user_id;
+
+insert into public.shared_custom_staff (
+  id, names, created_at, updated_at, updated_by
+)
+select
+  1,
+  names,
+  coalesce(created_at, now()),
+  coalesce(updated_at, now()),
+  user_id
+from public.custom_staff
+where not exists (
+  select 1
+  from public.shared_custom_staff
+)
+order by updated_at desc nulls last, created_at desc nulls last, user_id
+limit 1;
+
+insert into public.shared_colours (
+  name, colour, created_at, updated_at, updated_by
+)
+select distinct on (name)
+  name,
+  colour,
+  coalesce(created_at, now()),
+  coalesce(updated_at, now()),
+  user_id
+from public.colours
+where not exists (
+  select 1
+  from public.shared_colours
+)
+order by name, updated_at desc nulls last, created_at desc nulls last, user_id;
+
+alter table public.shared_rosters enable row level security;
+alter table public.shared_custom_staff enable row level security;
+alter table public.shared_colours enable row level security;
+
+drop policy if exists "approved users can view shared rosters" on public.shared_rosters;
+create policy "approved users can view shared rosters"
+on public.shared_rosters
+for select
+to authenticated
+using (public.is_approved(auth.uid()));
+
+drop policy if exists "admins manage shared rosters" on public.shared_rosters;
+create policy "admins manage shared rosters"
+on public.shared_rosters
+for all
+to authenticated
+using (public.is_admin(auth.uid()))
+with check (public.is_admin(auth.uid()));
+
+drop policy if exists "approved users can view shared custom staff" on public.shared_custom_staff;
+create policy "approved users can view shared custom staff"
+on public.shared_custom_staff
+for select
+to authenticated
+using (public.is_approved(auth.uid()));
+
+drop policy if exists "admins manage shared custom staff" on public.shared_custom_staff;
+create policy "admins manage shared custom staff"
+on public.shared_custom_staff
+for all
+to authenticated
+using (public.is_admin(auth.uid()))
+with check (public.is_admin(auth.uid()));
+
+drop policy if exists "approved users can view shared colours" on public.shared_colours;
+create policy "approved users can view shared colours"
+on public.shared_colours
+for select
+to authenticated
+using (public.is_approved(auth.uid()));
+
+drop policy if exists "admins manage shared colours" on public.shared_colours;
+create policy "admins manage shared colours"
+on public.shared_colours
+for all
+to authenticated
+using (public.is_admin(auth.uid()))
+with check (public.is_admin(auth.uid()));
 
 -- Make the first admin:
 -- update public.approved_users
