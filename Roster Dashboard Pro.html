@@ -1767,15 +1767,19 @@
       reader.readAsArrayBuffer(file);
     }
 
-    function buildMonthExportTable(includeNotes = false) {
+    function buildMonthExportTable(includeNotes = false, options = {}) {
+      const { forcePortrait = false } = options;
       const monthRecords = getDaysInMonth(selectedMonth).map(date => normaliseRecord(date, false));
       const monthTitle = monthLabel(selectedMonth);
       const compactLayout = !includeNotes;
-      const orientation = includeNotes ? 'landscape' : 'portrait';
+      const portraitNotesLayout = includeNotes && forcePortrait;
+      const orientation = portraitNotesLayout ? 'portrait' : (includeNotes ? 'landscape' : 'portrait');
       const excelOrientation = includeNotes ? 'Landscape' : 'Portrait';
       const colWidths = compactLayout
         ? ['34', '42', '42', '42', '48', '42', '42', '42', '48', '42', '42', '68', '34', '42']
-        : ['60', '72', '72', '72', '84', '72', '72', '72', '84', '72', '72', '130', '62', '62', '170'];
+        : portraitNotesLayout
+          ? ['34', '38', '38', '38', '46', '38', '38', '38', '46', '38', '38', '62', '34', '38', '92']
+          : ['60', '72', '72', '72', '84', '72', '72', '72', '84', '72', '72', '130', '62', '62', '170'];
       const headers = compactLayout
         ? ['Date', 'AM Mlk', 'AM Yd', 'AM Ast', 'AM TMR', 'PM Mlk', 'PM Yd', 'PM Ast', 'N Check', 'N Mlk', 'N Yd', 'Other', 'Hol', 'Y Feed']
         : ['Date', 'AM Milk', 'AM Yard', 'AM Assist', 'AM TMR Feed', 'PM Milk', 'PM Yard', 'PM Assist', 'Night Check', 'Night Milk', 'Night Yard', 'Training / Meetings / Other', 'Holiday', 'Y. Feed'];
@@ -1802,18 +1806,20 @@
       <style>
         @page{size:A4 ${orientation};margin:9mm}
         body{font-family:Arial,sans-serif;margin:0}
-        table{border-collapse:collapse;font-family:Arial,sans-serif;font-size:${compactLayout ? '8px' : '11px'};table-layout:fixed;width:100%}
-        th,td{border:1px solid #cbd5e1;padding:${compactLayout ? '2px 3px' : '6px 8px'};vertical-align:top;word-break:break-word;overflow-wrap:anywhere}
+        table{border-collapse:collapse;font-family:Arial,sans-serif;font-size:${compactLayout ? '8px' : (portraitNotesLayout ? '7px' : '11px')};table-layout:fixed;width:100%}
+        th,td{border:1px solid #cbd5e1;padding:${compactLayout ? '2px 3px' : (portraitNotesLayout ? '3px 4px' : '6px 8px')};vertical-align:top;word-break:break-word;overflow-wrap:anywhere}
         th{background:#0f172a;color:#fff}
         tbody td{background:#ffffff;color:#000000}
-        h1{font-family:Arial,sans-serif;font-size:${compactLayout ? '16px' : '22px'};margin:0 0 8px}
-        .page{padding:${compactLayout ? '0' : '2mm 0'}}
+        h1{font-family:Arial,sans-serif;font-size:${compactLayout ? '16px' : (portraitNotesLayout ? '18px' : '22px')};margin:0 0 8px}
+        .page{padding:${compactLayout ? '0' : (portraitNotesLayout ? '0' : '2mm 0')}}
         .compact-sheet{transform:scale(0.82);transform-origin:top left;width:122%}
+        .portrait-notes-sheet{transform:scale(0.68);transform-origin:top left;width:147%}
         .weekend-row td{background:#000000 !important;color:#ffffff !important}
         @media print{
           .compact-sheet{transform:scale(0.78);width:128%}
+          .portrait-notes-sheet{transform:scale(0.66);width:151%}
         }
-      </style></head><body><div class="page ${compactLayout ? 'compact-sheet' : ''}"><h1>${monthTitle} Roster</h1><table>${colGroup}<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${tableRows}</tbody></table></div></body></html>`;
+      </style></head><body><div class="page ${compactLayout ? 'compact-sheet' : ''} ${portraitNotesLayout ? 'portrait-notes-sheet' : ''}"><h1>${monthTitle} Roster</h1><table>${colGroup}<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${tableRows}</tbody></table></div></body></html>`;
       return { html, monthTitle, orientation };
     }
 
@@ -1828,7 +1834,7 @@
     }
 
     function exportMonthPdf(includeNotes = false) {
-      const { html, monthTitle, orientation } = buildMonthExportTable(includeNotes);
+      const { html, monthTitle, orientation } = buildMonthExportTable(includeNotes, { forcePortrait: true });
       const printWindow = window.open('', '_blank', orientation === 'landscape' ? 'width=1400,height=900' : 'width=1000,height=1200');
       if (!printWindow) {
         alert('Your browser blocked the PDF window. Please allow pop-ups for this site and try again.');
