@@ -1773,6 +1773,9 @@
       const compactLayout = !includeNotes;
       const orientation = includeNotes ? 'landscape' : 'portrait';
       const excelOrientation = includeNotes ? 'Landscape' : 'Portrait';
+      const colWidths = compactLayout
+        ? ['34', '42', '42', '42', '48', '42', '42', '42', '48', '42', '42', '68', '34', '42']
+        : ['60', '72', '72', '72', '84', '72', '72', '72', '84', '72', '72', '130', '62', '62', '170'];
       const headers = compactLayout
         ? ['Date', 'AM Mlk', 'AM Yd', 'AM Ast', 'AM TMR', 'PM Mlk', 'PM Yd', 'PM Ast', 'N Check', 'N Mlk', 'N Yd', 'Other', 'Hol', 'Y Feed']
         : ['Date', 'AM Milk', 'AM Yard', 'AM Assist', 'AM TMR Feed', 'PM Milk', 'PM Yard', 'PM Assist', 'Night Check', 'Night Milk', 'Night Yard', 'Training / Meetings / Other', 'Holiday', 'Y. Feed'];
@@ -1793,19 +1796,24 @@
         const rowClass = dayNum === 0 || dayNum === 6 ? 'weekend-row' : '';
         return `<tr class="${rowClass}">${cols.map(c => `<td>${escapeHtml(c || '')}</td>`).join('')}</tr>`;
       }).join('');
+      const colGroup = `<colgroup>${colWidths.map(width => `<col style="width:${width}px">`).join('')}</colgroup>`;
       const html = `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"><title>${escapeHtml(monthTitle)} Roster</title>
       <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>${escapeHtml(monthTitle)}</x:Name><x:WorksheetOptions><x:PageSetup><x:Layout x:Orientation="${excelOrientation}"/><x:FitToPage/></x:PageSetup><x:FitToPage/><x:Print><x:FitWidth>1</x:FitWidth><x:FitHeight>0</x:FitHeight></x:Print></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
       <style>
         @page{size:A4 ${orientation};margin:9mm}
         body{font-family:Arial,sans-serif;margin:0}
-        table{border-collapse:collapse;font-family:Arial,sans-serif;font-size:${compactLayout ? '9px' : '11px'};table-layout:fixed;width:100%}
-        th,td{border:1px solid #cbd5e1;padding:${compactLayout ? '3px 4px' : '6px 8px'};vertical-align:top;word-break:break-word}
+        table{border-collapse:collapse;font-family:Arial,sans-serif;font-size:${compactLayout ? '8px' : '11px'};table-layout:fixed;width:100%}
+        th,td{border:1px solid #cbd5e1;padding:${compactLayout ? '2px 3px' : '6px 8px'};vertical-align:top;word-break:break-word;overflow-wrap:anywhere}
         th{background:#0f172a;color:#fff}
         tbody td{background:#ffffff;color:#000000}
-        h1{font-family:Arial,sans-serif;font-size:${compactLayout ? '18px' : '22px'};margin:0 0 8px}
+        h1{font-family:Arial,sans-serif;font-size:${compactLayout ? '16px' : '22px'};margin:0 0 8px}
         .page{padding:${compactLayout ? '0' : '2mm 0'}}
+        .compact-sheet{transform:scale(0.82);transform-origin:top left;width:122%}
         .weekend-row td{background:#000000 !important;color:#ffffff !important}
-      </style></head><body><div class="page"><h1>${monthTitle} Roster</h1><table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${tableRows}</tbody></table></div></body></html>`;
+        @media print{
+          .compact-sheet{transform:scale(0.78);width:128%}
+        }
+      </style></head><body><div class="page ${compactLayout ? 'compact-sheet' : ''}"><h1>${monthTitle} Roster</h1><table>${colGroup}<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${tableRows}</tbody></table></div></body></html>`;
       return { html, monthTitle, orientation };
     }
 
