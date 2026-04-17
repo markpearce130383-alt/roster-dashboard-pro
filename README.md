@@ -24,7 +24,7 @@ If you already had an older per-user version of this app, run `supabase-setup.sq
 ## User approval
 
 Users can register in the app, but only approved users can access roster data.
-Admins can approve registrations in Supabase by updating the `approved_users` table.
+Admins can approve registrations inside the app from the user approvals panel.
 
 Make the first admin with:
 
@@ -36,7 +36,7 @@ set approved = true,
 where email = 'person@example.com';
 ```
 
-After that, that admin can sign into the app and edit the shared roster for everyone else. Approved non-admin users will see the same roster in read-only mode.
+After that, that admin can sign into the app, approve other users from the approvals panel, and edit the shared roster for everyone else. Approved non-admin users will see the same roster in read-only mode.
 
 ## Security notes
 
