@@ -416,8 +416,10 @@
           <button id="copyMonthBtn">Copy month to next month</button>
           <button id="importBtn">Upload roster spreadsheet</button>
           <input id="importFileInput" type="file" accept=".xlsx,.xls" style="display:none" />
-          <button id="exportBtn" class="good">Download month spreadsheet</button>
-          <button id="printBtn">Print month view</button>
+          <button id="exportSpreadsheetBtn" class="good">Spreadsheet</button>
+          <button id="exportSpreadsheetWithNotesBtn" class="good">Spreadsheet + notes</button>
+          <button id="exportPdfBtn">PDF</button>
+          <button id="exportPdfWithNotesBtn">PDF + notes</button>
           <button id="resetBtn" class="warn">Reset saved edits</button>
         </div>
       </div>
@@ -1765,15 +1767,20 @@
       reader.readAsArrayBuffer(file);
     }
 
-    function exportMonthSpreadsheet() {
+    function buildMonthExportTable(includeNotes = false) {
       const monthRecords = getDaysInMonth(selectedMonth).map(date => normaliseRecord(date, false));
       const monthTitle = monthLabel(selectedMonth);
       const headers = ['Date', 'AM Milk', 'AM Yard', 'AM Assist', 'AM TMR Feed', 'PM Milk', 'PM Yard', 'PM Assist', 'Night Check', 'Night Milk', 'Night Yard', 'Training / Meetings / Other', 'Holiday', 'Y. Feed'];
-      const rows = monthRecords.map(r => [
-        formatMonthShort(r.date), r.am_milk, r.am_yard, r.am_assist, r.am_tmr_feed,
-        r.pm_milk, r.pm_yard, r.pm_assist, r.night_check, r.night_milk, r.night_yard,
-        r.training_other, r.holiday, r.y_feed
-      ]);
+      if (includeNotes) headers.push('Notes');
+      const rows = monthRecords.map(r => {
+        const row = [
+          formatMonthShort(r.date), r.am_milk, r.am_yard, r.am_assist, r.am_tmr_feed,
+          r.pm_milk, r.pm_yard, r.pm_assist, r.night_check, r.night_milk, r.night_yard,
+          r.training_other, r.holiday, r.y_feed
+        ];
+        if (includeNotes) row.push(r.notes || '');
+        return row;
+      });
 
       const tableRows = monthRecords.map((record, idx) => {
         const cols = rows[idx];
@@ -1781,7 +1788,7 @@
         const rowClass = dayNum === 0 || dayNum === 6 ? 'weekend-row' : '';
         return `<tr class="${rowClass}">${cols.map(c => `<td>${escapeHtml(c || '')}</td>`).join('')}</tr>`;
       }).join('');
-      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(monthTitle)} Roster</title><style>
         table{border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px}
         th,td{border:1px solid #cbd5e1;padding:6px 8px;vertical-align:top}
         th{background:#0f172a;color:#fff}
@@ -1789,13 +1796,34 @@
         h1{font-family:Arial,sans-serif}
         .weekend-row td{background:#000000 !important;color:#ffffff !important}
       </style></head><body><h1>${monthTitle} Roster</h1><table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${tableRows}</tbody></table></body></html>`;
+      return { html, monthTitle };
+    }
 
+    function exportMonthSpreadsheet(includeNotes = false) {
+      const { html } = buildMonthExportTable(includeNotes);
       const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `${selectedMonth}-roster.xls`;
+      a.download = `${selectedMonth}-roster${includeNotes ? '-with-notes' : ''}.xls`;
       a.click();
       URL.revokeObjectURL(a.href);
+    }
+
+    function exportMonthPdf(includeNotes = false) {
+      const { html, monthTitle } = buildMonthExportTable(includeNotes);
+      const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=1200,height=900');
+      if (!printWindow) {
+        alert('Your browser blocked the PDF window. Please allow pop-ups for this site and try again.');
+        return;
+      }
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.document.title = `${monthTitle} Roster${includeNotes ? ' With Notes' : ''}`;
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
     }
 
     function formatDate(dateStr) {
@@ -1916,8 +1944,10 @@
       importRosterWorkbook(e.target.files?.[0]);
       e.target.value = '';
     });
-    document.getElementById('exportBtn').addEventListener('click', exportMonthSpreadsheet);
-    document.getElementById('printBtn').addEventListener('click', () => window.print());
+    document.getElementById('exportSpreadsheetBtn').addEventListener('click', () => exportMonthSpreadsheet(false));
+    document.getElementById('exportSpreadsheetWithNotesBtn').addEventListener('click', () => exportMonthSpreadsheet(true));
+    document.getElementById('exportPdfBtn').addEventListener('click', () => exportMonthPdf(false));
+    document.getElementById('exportPdfWithNotesBtn').addEventListener('click', () => exportMonthPdf(true));
     document.getElementById('prevMonthBtn').addEventListener('click', () => changeMonth(-1));
     document.getElementById('nextMonthBtn').addEventListener('click', () => changeMonth(1));
     document.getElementById('todayBtn').addEventListener('click', () => {
