@@ -1770,7 +1770,12 @@
     function buildMonthExportTable(includeNotes = false) {
       const monthRecords = getDaysInMonth(selectedMonth).map(date => normaliseRecord(date, false));
       const monthTitle = monthLabel(selectedMonth);
-      const headers = ['Date', 'AM Milk', 'AM Yard', 'AM Assist', 'AM TMR Feed', 'PM Milk', 'PM Yard', 'PM Assist', 'Night Check', 'Night Milk', 'Night Yard', 'Training / Meetings / Other', 'Holiday', 'Y. Feed'];
+      const compactLayout = !includeNotes;
+      const orientation = includeNotes ? 'landscape' : 'portrait';
+      const excelOrientation = includeNotes ? 'Landscape' : 'Portrait';
+      const headers = compactLayout
+        ? ['Date', 'AM Mlk', 'AM Yd', 'AM Ast', 'AM TMR', 'PM Mlk', 'PM Yd', 'PM Ast', 'N Check', 'N Mlk', 'N Yd', 'Other', 'Hol', 'Y Feed']
+        : ['Date', 'AM Milk', 'AM Yard', 'AM Assist', 'AM TMR Feed', 'PM Milk', 'PM Yard', 'PM Assist', 'Night Check', 'Night Milk', 'Night Yard', 'Training / Meetings / Other', 'Holiday', 'Y. Feed'];
       if (includeNotes) headers.push('Notes');
       const rows = monthRecords.map(r => {
         const row = [
@@ -1788,15 +1793,20 @@
         const rowClass = dayNum === 0 || dayNum === 6 ? 'weekend-row' : '';
         return `<tr class="${rowClass}">${cols.map(c => `<td>${escapeHtml(c || '')}</td>`).join('')}</tr>`;
       }).join('');
-      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(monthTitle)} Roster</title><style>
-        table{border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px}
-        th,td{border:1px solid #cbd5e1;padding:6px 8px;vertical-align:top}
+      const html = `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"><title>${escapeHtml(monthTitle)} Roster</title>
+      <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>${escapeHtml(monthTitle)}</x:Name><x:WorksheetOptions><x:PageSetup><x:Layout x:Orientation="${excelOrientation}"/><x:FitToPage/></x:PageSetup><x:FitToPage/><x:Print><x:FitWidth>1</x:FitWidth><x:FitHeight>0</x:FitHeight></x:Print></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+      <style>
+        @page{size:A4 ${orientation};margin:9mm}
+        body{font-family:Arial,sans-serif;margin:0}
+        table{border-collapse:collapse;font-family:Arial,sans-serif;font-size:${compactLayout ? '9px' : '11px'};table-layout:fixed;width:100%}
+        th,td{border:1px solid #cbd5e1;padding:${compactLayout ? '3px 4px' : '6px 8px'};vertical-align:top;word-break:break-word}
         th{background:#0f172a;color:#fff}
         tbody td{background:#ffffff;color:#000000}
-        h1{font-family:Arial,sans-serif}
+        h1{font-family:Arial,sans-serif;font-size:${compactLayout ? '18px' : '22px'};margin:0 0 8px}
+        .page{padding:${compactLayout ? '0' : '2mm 0'}}
         .weekend-row td{background:#000000 !important;color:#ffffff !important}
-      </style></head><body><h1>${monthTitle} Roster</h1><table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${tableRows}</tbody></table></body></html>`;
-      return { html, monthTitle };
+      </style></head><body><div class="page"><h1>${monthTitle} Roster</h1><table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${tableRows}</tbody></table></div></body></html>`;
+      return { html, monthTitle, orientation };
     }
 
     function exportMonthSpreadsheet(includeNotes = false) {
@@ -1810,8 +1820,8 @@
     }
 
     function exportMonthPdf(includeNotes = false) {
-      const { html, monthTitle } = buildMonthExportTable(includeNotes);
-      const printWindow = window.open('', '_blank', 'width=1200,height=900');
+      const { html, monthTitle, orientation } = buildMonthExportTable(includeNotes);
+      const printWindow = window.open('', '_blank', orientation === 'landscape' ? 'width=1400,height=900' : 'width=1000,height=1200');
       if (!printWindow) {
         alert('Your browser blocked the PDF window. Please allow pop-ups for this site and try again.');
         return;
