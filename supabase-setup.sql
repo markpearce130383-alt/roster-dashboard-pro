@@ -171,6 +171,13 @@ to authenticated
 using (public.is_admin(auth.uid()))
 with check (public.is_admin(auth.uid()));
 
+drop policy if exists "admins can delete approval rows" on public.approved_users;
+create policy "admins can delete approval rows"
+on public.approved_users
+for delete
+to authenticated
+using (public.is_admin(auth.uid()));
+
 drop policy if exists "approved users manage own rosters" on public.rosters;
 create policy "approved users manage own rosters"
 on public.rosters

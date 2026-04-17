@@ -610,16 +610,16 @@
       const hasLocalData = localState.length || localCustomStaff.length || Object.keys(localColourMap).length;
 
       approvalState = await loadApprovalStatus();
-      setStatusMessage(accountStatus, buildAccountStatusMessage(), approvalState?.approved === false ? 'error' : 'info');
+      setStatusMessage(accountStatus, buildAccountStatusMessage(), approvalState?.approved === true ? 'info' : 'error');
       renderApprovalPanel();
 
-      if (approvalState?.approved === false) {
+      if (!approvalState?.approved) {
         customStaff = [];
         staffList = buildStaffList(customStaff);
         colourMap = {};
         ensureColours(colourMap, staffList);
         state = structuredClone(seedData);
-        setStatusMessage(syncStatus, 'This account is waiting for approval in Supabase and cannot open the shared roster yet.', 'error');
+        setStatusMessage(syncStatus, 'This account does not currently have access to the shared roster. An admin may need to approve or restore it.', 'error');
         selectedDate = formatYMD(getSafeInitialDate(state[0]?.date));
         selectedMonth = selectedDate.slice(0,7);
         renderFilters();
@@ -806,15 +806,15 @@
 
     function describeSyncError(error, action = 'save') {
       const text = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ').toLowerCase();
-      if (approvalState?.approved === false || error?.code === '42501' || /row-level security|permission denied|not approved|forbidden/.test(text)) {
+      if (!approvalState?.approved || error?.code === '42501' || /row-level security|permission denied|not approved|forbidden/.test(text)) {
         if (approvalState?.approved === true && approvalState?.is_admin !== true) {
           return action === 'load'
             ? 'This account has read-only access to the shared roster.'
             : 'This account is read only. Only admins can change the shared roster.';
         }
         return action === 'load'
-          ? 'This account is not allowed to open the shared roster yet. An admin may still need to approve it.'
-          : 'This account is not allowed to change the shared roster. An admin may still need to approve or promote it.';
+          ? 'This account does not currently have access to the shared roster. An admin may need to approve or restore it.'
+          : 'This account is not allowed to change the shared roster. An admin may need to approve, restore, or promote it.';
       }
       return action === 'load'
         ? 'Could not load the shared roster from Supabase, so the app is using the browser cache for now.'
@@ -824,11 +824,8 @@
     function buildAccountStatusMessage() {
       if (!user) return '';
       const email = user.email || 'this account';
-      if (approvalState?.approved === false) {
-        return `Signed in as ${email}. This account is waiting for approval and cannot open the shared roster yet.`;
-      }
-      if (approvalState?.approved !== true) {
-        return `Signed in as ${email}. Your role could not be verified from Supabase, so the shared roster is in read-only mode until the connection comes back.`;
+      if (!approvalState?.approved) {
+        return `Signed in as ${email}. This account does not currently have access to the shared roster.`;
       }
       if (approvalState?.is_admin) {
         return `Signed in as ${email}. You can edit the shared roster for everyone.`;
@@ -980,8 +977,9 @@
               <div class="approval-actions">
                 <button type="button" data-approve-user="${row.user_id}" ${isSelf ? 'disabled' : ''}>${row.approved ? 'Set pending' : 'Approve user'}</button>
                 <button type="button" class="ghost" data-admin-user="${row.user_id}" ${isSelf ? 'disabled' : ''}>${row.is_admin ? 'Remove admin' : 'Make admin'}</button>
+                <button type="button" class="warn" data-remove-user="${row.user_id}" ${isSelf ? 'disabled' : ''}>Remove access</button>
               </div>
-              ${isSelf ? '<div class="approval-meta">Your own admin access is locked here to avoid accidental lockout.</div>' : ''}
+              ${isSelf ? '<div class="approval-meta">Your own admin access is locked here to avoid accidental lockout.</div>' : '<div class="approval-meta">Remove access deletes this approval record and blocks the user until an admin restores it.</div>'}
             </div>
           `;
         }).join('');
@@ -996,6 +994,12 @@
       approvalList.querySelectorAll('[data-admin-user]').forEach(button => {
         button.addEventListener('click', () => {
           updateApprovalRow(button.getAttribute('data-admin-user'), { action: 'toggleAdmin' }).catch(console.error);
+        });
+      });
+
+      approvalList.querySelectorAll('[data-remove-user]').forEach(button => {
+        button.addEventListener('click', () => {
+          updateApprovalRow(button.getAttribute('data-remove-user'), { action: 'removeAccess' }).catch(console.error);
         });
       });
     }
@@ -1037,15 +1041,17 @@
         patch = currentRow.is_admin
           ? { is_admin: false, approved_by: user.id }
           : { approved: true, is_admin: true, approved_at: currentRow.approved_at || new Date().toISOString(), approved_by: user.id };
+      } else if (action === 'removeAccess') {
+        if (!confirm(`Remove all app access for ${currentRow.email || 'this user'}? They will disappear from the approvals list until their record is restored manually.`)) return;
       } else {
         return;
       }
 
       setStatusMessage(approvalStatus, 'Saving user approval changes...', 'info');
-      const { error } = await supabaseClient
-        .from(TABLES.approvals)
-        .update(patch)
-        .eq('user_id', targetUserId);
+      const query = action === 'removeAccess'
+        ? supabaseClient.from(TABLES.approvals).delete().eq('user_id', targetUserId)
+        : supabaseClient.from(TABLES.approvals).update(patch).eq('user_id', targetUserId);
+      const { error } = await query;
       if (error) {
         setStatusMessage(approvalStatus, 'Could not update that user approval.', 'error');
         throw error;
@@ -1097,12 +1103,10 @@
       if (!canEditRoster()) {
         setStatusMessage(
           syncStatus,
-          approvalState?.approved === false
-            ? 'This account is waiting for approval and cannot change the shared roster yet.'
-            : approvalState?.approved === true
-              ? 'This account is read only. Only admins can change the shared roster.'
-              : 'Your admin access could not be verified, so the shared roster is in read-only mode right now.',
-          approvalState?.approved === true ? 'info' : 'error'
+          approvalState?.approved
+            ? 'This account is read only. Only admins can change the shared roster.'
+            : 'This account does not currently have access to the shared roster.',
+          approvalState?.approved ? 'info' : 'error'
         );
         return;
       }
@@ -1764,11 +1768,11 @@
     function exportMonthSpreadsheet() {
       const monthRecords = getDaysInMonth(selectedMonth).map(date => normaliseRecord(date, false));
       const monthTitle = monthLabel(selectedMonth);
-      const headers = ['Date', 'AM Milk', 'AM Yard', 'AM Assist', 'AM TMR Feed', 'PM Milk', 'PM Yard', 'PM Assist', 'Night Check', 'Night Milk', 'Night Yard', 'Training / Meetings / Other', 'Holiday', 'Y. Feed', 'Notes'];
+      const headers = ['Date', 'AM Milk', 'AM Yard', 'AM Assist', 'AM TMR Feed', 'PM Milk', 'PM Yard', 'PM Assist', 'Night Check', 'Night Milk', 'Night Yard', 'Training / Meetings / Other', 'Holiday', 'Y. Feed'];
       const rows = monthRecords.map(r => [
-        formatDate(r.date), r.am_milk, r.am_yard, r.am_assist, r.am_tmr_feed,
+        formatMonthShort(r.date), r.am_milk, r.am_yard, r.am_assist, r.am_tmr_feed,
         r.pm_milk, r.pm_yard, r.pm_assist, r.night_check, r.night_milk, r.night_yard,
-        r.training_other, r.holiday, r.y_feed, r.notes
+        r.training_other, r.holiday, r.y_feed
       ]);
 
       const tableRows = monthRecords.map((record, idx) => {
@@ -1778,7 +1782,12 @@
         return `<tr class="${rowClass}">${cols.map(c => `<td>${escapeHtml(c || '')}</td>`).join('')}</tr>`;
       }).join('');
       const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-        table{border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px} th,td{border:1px solid #cbd5e1;padding:6px 8px;vertical-align:top} th{background:#0f172a;color:#fff} h1{font-family:Arial,sans-serif} .weekend-row td{background:#fff3cd !important}
+        table{border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px}
+        th,td{border:1px solid #cbd5e1;padding:6px 8px;vertical-align:top}
+        th{background:#0f172a;color:#fff}
+        tbody td{background:#ffffff;color:#000000}
+        h1{font-family:Arial,sans-serif}
+        .weekend-row td{background:#000000 !important;color:#ffffff !important}
       </style></head><body><h1>${monthTitle} Roster</h1><table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${tableRows}</tbody></table></body></html>`;
 
       const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
@@ -1791,6 +1800,10 @@
 
     function formatDate(dateStr) {
       return parseYMD(dateStr).toLocaleDateString('en-GB');
+    }
+
+    function formatMonthShort(dateStr) {
+      return parseYMD(dateStr).toLocaleDateString('en-GB', { month: 'short' });
     }
 
     function changeMonth(delta) {
