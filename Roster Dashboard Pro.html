@@ -1798,7 +1798,7 @@
         const cols = rows[idx];
         const dayNum = parseYMD(record.date).getDay();
         const rowClass = dayNum === 0 || dayNum === 6 ? 'weekend-row' : '';
-        return `<tr class="${rowClass}">${cols.map(c => `<td>${escapeHtml(c || '')}</td>`).join('')}</tr>`;
+        return `<tr class="${rowClass}">${cols.map((c, colIdx) => `<td${colIdx === 0 ? ' class="date-text-cell"' : ''}>${escapeHtml(c || '')}</td>`).join('')}</tr>`;
       }).join('');
       const colGroup = `<colgroup>${colWidths.map(width => `<col style="width:${width}px">`).join('')}</colgroup>`;
       const html = `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"><title>${escapeHtml(monthTitle)} Roster</title>
@@ -1810,6 +1810,7 @@
         th,td{border:1px solid #cbd5e1;padding:${compactLayout ? '2px 3px' : (portraitNotesLayout ? '3px 4px' : '6px 8px')};vertical-align:top;word-break:break-word;overflow-wrap:anywhere}
         th{background:#0f172a;color:#fff}
         tbody td{background:#ffffff;color:#000000}
+        .date-text-cell{mso-number-format:"\\@";white-space:nowrap}
         h1{font-family:Arial,sans-serif;font-size:${compactLayout ? '16px' : (portraitNotesLayout ? '18px' : '22px')};margin:0 0 8px}
         .page{padding:${compactLayout ? '0' : (portraitNotesLayout ? '0' : '2mm 0')}}
         .compact-sheet{transform:scale(0.82);transform-origin:top left;width:122%}
@@ -1855,7 +1856,7 @@
     }
 
     function formatMonthShort(dateStr) {
-      return parseYMD(dateStr).toLocaleDateString('en-GB', { month: 'short' });
+      return parseYMD(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
     }
 
     function changeMonth(delta) {
