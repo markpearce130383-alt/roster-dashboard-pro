@@ -48,6 +48,8 @@ For this project, prefer the full app page URL, for example:
 
 instead of relying only on the site root redirect.
 
+When signing up from `localhost` or a home-network testing URL, the app now falls back to Supabase's configured `Site URL` instead of embedding the local address into the confirmation email. Set Supabase `Site URL` to your live app domain so verification links open correctly on phones and other devices.
+
 ## Security notes
 
 - The frontend uses the Supabase anon public key only.

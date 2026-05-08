@@ -729,8 +729,20 @@
     let approvalRows = [];
     let persistQueue = Promise.resolve();
 
+    function isLocalSignupHost(hostname) {
+      return hostname === 'localhost'
+        || hostname === '127.0.0.1'
+        || hostname === '[::1]'
+        || /^10\./.test(hostname)
+        || /^192\.168\./.test(hostname)
+        || /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname);
+    }
+
     function getAppRedirectUrl() {
       const url = new URL(window.location.href);
+      if (isLocalSignupHost(url.hostname)) {
+        return null;
+      }
       url.hash = '';
       url.search = '';
       if (!/Roster%20Dashboard%20Pro\.html$/i.test(url.pathname) && !/Roster Dashboard Pro\.html$/i.test(url.pathname)) {
@@ -786,12 +798,11 @@
     signupBtn.addEventListener('click', async () => {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
+      const emailRedirectTo = getAppRedirectUrl();
       const { error } = await supabaseClient.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo: getAppRedirectUrl()
-        }
+        options: emailRedirectTo ? { emailRedirectTo } : undefined
       });
       if (error) setStatusMessage(authMessage, error.message, 'error');
       else setStatusMessage(authMessage, 'Check your email for confirmation, then wait for an admin to approve your account.', 'success');
