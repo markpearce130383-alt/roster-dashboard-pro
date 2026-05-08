@@ -279,6 +279,40 @@
       padding-top: 16px;
       border-top: 1px solid rgba(43, 36, 29, .14);
     }
+    .email-panel {
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid rgba(43, 36, 29, .16);
+      border-radius: 16px;
+      background: rgba(255, 252, 247, 0.78);
+    }
+    .email-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+    }
+    .email-panel textarea {
+      min-height: 78px;
+    }
+    .checkbox-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+      font-size: .9rem;
+      margin: 0;
+    }
+    .checkbox-row input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+    }
+    .email-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 220px;
+    }
     .approval-header {
       display:flex;
       gap:10px;
@@ -370,6 +404,8 @@
       .hero { min-height: 138px; }
       .hero-copy { max-width: calc(100% - 170px); }
       .hero-cow { right: 16px; font-size: 5.4rem; }
+      .email-grid { grid-template-columns: 1fr; }
+      .email-actions { min-width: 0; }
     }
   </style>
 </head>
@@ -421,6 +457,24 @@
           <button id="exportPdfBtn">PDF</button>
           <button id="exportPdfWithNotesBtn">PDF + notes</button>
           <button id="resetBtn" class="warn">Reset saved edits</button>
+        </div>
+        <div id="emailPanel" class="email-panel" style="display:none;">
+          <div class="section-title" style="margin-top:0;">Email roster</div>
+          <div class="email-grid">
+            <div>
+              <label for="emailRecipients">Recipients</label>
+              <textarea id="emailRecipients" placeholder="name@example.com, second@example.com"></textarea>
+            </div>
+            <div class="email-actions">
+              <label class="checkbox-row" for="emailIncludeNotes">
+                <input id="emailIncludeNotes" type="checkbox" />
+                Include notes
+              </label>
+              <button id="sendRosterEmailBtn" class="primary" type="button">Email roster</button>
+            </div>
+          </div>
+          <div class="notice">Admins only. Separate multiple addresses with commas, semicolons, or new lines. This sends the current month to your Netlify email proxy for n8n formatting.</div>
+          <div id="emailStatus" class="status-banner" data-tone="info"></div>
         </div>
       </div>
     </div>
@@ -532,6 +586,7 @@
       customStaff: 'shared_custom_staff',
       colours: 'shared_colours'
     };
+    const EMAIL_PROXY_URL = '/.netlify/functions/send-roster-email';
 
     let user = null;
 
@@ -543,6 +598,11 @@
     const approvalPanel = document.getElementById('approvalPanel');
     const approvalStatus = document.getElementById('approvalStatus');
     const approvalList = document.getElementById('approvalList');
+    const emailPanel = document.getElementById('emailPanel');
+    const emailRecipientsInput = document.getElementById('emailRecipients');
+    const emailIncludeNotesInput = document.getElementById('emailIncludeNotes');
+    const emailStatus = document.getElementById('emailStatus');
+    const sendRosterEmailBtn = document.getElementById('sendRosterEmailBtn');
     let approvalState = null;
     let approvalRows = [];
     let persistQueue = Promise.resolve();
@@ -574,6 +634,7 @@
         approvalState = null;
         approvalRows = [];
         renderApprovalPanel();
+        renderEmailPanel();
       }
     });
 
@@ -614,6 +675,7 @@
       approvalState = await loadApprovalStatus();
       setStatusMessage(accountStatus, buildAccountStatusMessage(), approvalState?.approved === true ? 'info' : 'error');
       renderApprovalPanel();
+      renderEmailPanel();
 
       if (!approvalState?.approved) {
         customStaff = [];
@@ -719,6 +781,7 @@
     const STORAGE_KEY = 'roster-dashboard-pro-v10';
     const CUSTOM_STAFF_KEY = 'roster-dashboard-pro-custom-staff-v10';
     const COLOUR_KEY = 'roster-dashboard-pro-colours-v10';
+    const EMAIL_RECIPIENTS_KEY = 'roster-dashboard-pro-email-recipients-v1';
     const DEFAULT_STAFF = ['Caroline', 'Joe', 'JJ', 'Robert', 'Liv', 'Lauren', 'Bessie', 'Isaac', 'Harry', 'Harvey', 'Charlie', 'Luke', 'Katie', 'Ross', 'Will', 'Rob', 'A4', 'Jim'];
     const FREE_TEXT_FIELDS = new Set(['training_other']);
 
@@ -795,6 +858,14 @@
 
     function writeLocalStorageValue(baseKey, value) {
       localStorage.setItem(baseKey, JSON.stringify(value));
+    }
+
+    function readLocalText(baseKey) {
+      return localStorage.getItem(baseKey) || '';
+    }
+
+    function writeLocalText(baseKey, value) {
+      localStorage.setItem(baseKey, value || '');
     }
 
     function buildCloudSnapshot() {
@@ -1006,6 +1077,23 @@
       });
     }
 
+    function renderEmailPanel() {
+      const allowed = canEditRoster();
+      emailPanel.style.display = allowed ? 'block' : 'none';
+      if (!allowed) {
+        emailRecipientsInput.value = '';
+        emailIncludeNotesInput.checked = false;
+        setStatusMessage(emailStatus);
+        return;
+      }
+      if (!emailRecipientsInput.value) {
+        emailRecipientsInput.value = readLocalText(EMAIL_RECIPIENTS_KEY);
+      }
+      emailRecipientsInput.disabled = false;
+      emailIncludeNotesInput.disabled = false;
+      sendRosterEmailBtn.disabled = false;
+    }
+
     async function refreshApprovalRows() {
       if (!canManageApprovals()) {
         renderApprovalPanel();
@@ -1129,6 +1217,128 @@
       } catch (error) {
         setStatusMessage(syncStatus, describeSyncError(error, 'save'), 'error');
         throw error;
+      }
+    }
+
+    function parseRecipientList(raw) {
+      const values = String(raw || '')
+        .split(/[\n,;]+/g)
+        .map(value => value.trim())
+        .filter(Boolean);
+      const seen = new Set();
+      const valid = [];
+      const invalid = [];
+      values.forEach(value => {
+        const email = value.toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          invalid.push(value);
+          return;
+        }
+        if (seen.has(email)) return;
+        seen.add(email);
+        valid.push(email);
+      });
+      return { valid, invalid };
+    }
+
+    function buildMonthEmailPayload(includeNotes = false) {
+      const monthRecords = getDaysInMonth(selectedMonth).map(date => normaliseRecord(date, false));
+      const monthTitle = monthLabel(selectedMonth);
+      const rows = monthRecords.map(record => {
+        const date = parseYMD(record.date);
+        const row = {
+          date: record.date,
+          dayOfMonth: date.getDate(),
+          weekday: date.toLocaleDateString('en-GB', { weekday: 'short' }),
+          weekend: date.getDay() === 0 || date.getDay() === 6,
+          am_milk: record.am_milk || '',
+          am_yard: record.am_yard || '',
+          am_assist: record.am_assist || '',
+          am_tmr_feed: record.am_tmr_feed || '',
+          pm_milk: record.pm_milk || '',
+          pm_yard: record.pm_yard || '',
+          pm_assist: record.pm_assist || '',
+          night_check: record.night_check || '',
+          night_milk: record.night_milk || '',
+          night_yard: record.night_yard || '',
+          training_other: record.training_other || '',
+          holiday: record.holiday || '',
+          y_feed: record.y_feed || ''
+        };
+        if (includeNotes) row.notes = record.notes || '';
+        return row;
+      });
+      return {
+        month: selectedMonth,
+        monthTitle,
+        includeNotes,
+        generatedAt: new Date().toISOString(),
+        rows
+      };
+    }
+
+    async function sendRosterEmail() {
+      if (!canEditRoster()) return;
+      const recipientsRaw = emailRecipientsInput.value;
+      const { valid, invalid } = parseRecipientList(recipientsRaw);
+      if (!valid.length) {
+        setStatusMessage(emailStatus, 'Enter at least one valid recipient email address.', 'error');
+        return;
+      }
+      if (invalid.length) {
+        setStatusMessage(emailStatus, `These email addresses do not look valid: ${invalid.join(', ')}`, 'error');
+        return;
+      }
+
+      const includeNotes = emailIncludeNotesInput.checked;
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        setStatusMessage(emailStatus, 'Your session expired. Please sign in again before sending email.', 'error');
+        return;
+      }
+
+      const previousLabel = sendRosterEmailBtn.textContent;
+      sendRosterEmailBtn.disabled = true;
+      sendRosterEmailBtn.textContent = 'Sending...';
+      setStatusMessage(emailStatus, 'Sending the current month to the Netlify email proxy...', 'info');
+      writeLocalText(EMAIL_RECIPIENTS_KEY, recipientsRaw.trim());
+
+      try {
+        const response = await fetch(EMAIL_PROXY_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify({
+            recipients: valid,
+            ...buildMonthEmailPayload(includeNotes)
+          })
+        });
+
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch {
+          payload = null;
+        }
+
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Could not send the roster email.');
+        }
+
+        setStatusMessage(
+          emailStatus,
+          payload?.message || `Roster email request sent for ${valid.length} recipient${valid.length === 1 ? '' : 's'}.`,
+          'success'
+        );
+      } catch (error) {
+        console.error(error);
+        setStatusMessage(emailStatus, error.message || 'Could not send the roster email.', 'error');
+      } finally {
+        sendRosterEmailBtn.disabled = false;
+        sendRosterEmailBtn.textContent = previousLabel;
       }
     }
 
@@ -1947,6 +2157,9 @@
       document.getElementById('addStaffBtn').disabled = !editable;
       document.getElementById('sortStaffBtn').disabled = !editable;
       document.getElementById('rebuildColoursBtn').disabled = !editable;
+      emailRecipientsInput.disabled = !editable;
+      emailIncludeNotesInput.disabled = !editable;
+      sendRosterEmailBtn.disabled = !editable;
       notesInput.readOnly = !editable;
       notesInput.disabled = false;
       formFields.querySelectorAll('select.person-slot, input.text-slot, [data-add-slot]').forEach(control => {
@@ -1973,6 +2186,9 @@
     document.getElementById('exportSpreadsheetWithNotesBtn').addEventListener('click', () => exportMonthSpreadsheet(true));
     document.getElementById('exportPdfBtn').addEventListener('click', () => exportMonthPdf(false));
     document.getElementById('exportPdfWithNotesBtn').addEventListener('click', () => exportMonthPdf(true));
+    sendRosterEmailBtn.addEventListener('click', () => {
+      sendRosterEmail().catch(console.error);
+    });
     document.getElementById('prevMonthBtn').addEventListener('click', () => changeMonth(-1));
     document.getElementById('nextMonthBtn').addEventListener('click', () => changeMonth(1));
     document.getElementById('todayBtn').addEventListener('click', () => {

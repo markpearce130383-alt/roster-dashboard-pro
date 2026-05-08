@@ -4,12 +4,15 @@ Static HTML roster app with Supabase authentication, approved-user access contro
 
 Important: roster data is shared across approved users. Admins can edit the shared roster, while non-admin accounts are read only.
 
+The app also includes an admin-only `Email roster` panel that can send the current month to an `n8n` workflow through a Netlify function.
+
 ## Files
 
 - `Roster Dashboard Pro.html`: main app
 - `supabase-setup.sql`: database schema, RLS policies, and approval table
 - `supabase-config.example.js`: safe example config for the frontend
 - `supabase-config.js`: live local config file with your real Supabase values, ignored by Git
+- `netlify/functions/send-roster-email.js`: Netlify proxy that verifies the signed-in admin and forwards roster email requests to `n8n`
 
 ## Local setup
 
@@ -70,3 +73,34 @@ Important:
 - The Supabase anon key is safe for frontend use.
 - Never put the Supabase service role key into any committed file.
 - `supabase-config.js` can still stay local-only for your machine and will override the committed example locally.
+
+## Netlify email proxy
+
+If you want the app to send a beautifully formatted roster email through `n8n`, deploy this repo on Netlify as well so the browser can call the built-in serverless function without exposing your real `n8n` webhook URL.
+
+The app sends the current month roster to:
+
+- `/.netlify/functions/send-roster-email`
+
+That function:
+
+- verifies the current Supabase session token
+- confirms the sender is an approved admin in `approved_users`
+- forwards the roster payload to your private `n8n` webhook
+
+Set these Netlify environment variables:
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `N8N_ROSTER_EMAIL_WEBHOOK_URL`
+- `N8N_ROSTER_EMAIL_WEBHOOK_SECRET`
+  Optional but recommended. If set, it is sent to `n8n` as `x-roster-webhook-secret`.
+- `EMAIL_PROXY_ALLOWED_ORIGIN`
+  Optional. Use your live app origin, for example `https://your-site.netlify.app`.
+
+Notes:
+
+- The service role key must only live in Netlify environment variables, never in the frontend.
+- If you keep using GitHub Pages for the app UI, this Netlify function path will not exist on that domain. The simplest setup is to deploy the same app on Netlify when you want email sending.
+- The recipients box supports multiple addresses separated by commas, semicolons, or new lines.
