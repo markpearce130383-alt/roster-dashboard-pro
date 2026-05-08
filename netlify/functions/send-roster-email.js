@@ -114,32 +114,62 @@ async function getSupabaseUser(accessToken) {
 }
 
 async function loadApprovalRow(userId) {
-  const url = new URL(`${getSupabaseUrl()}/rest/v1/approved_users`);
-  url.searchParams.set('select', 'user_id,email,approved,is_admin,admin,role');
-  url.searchParams.set('user_id', `eq.${userId}`);
-  url.searchParams.set('limit', '1');
+  const selectAttempts = [
+    'user_id,email,approved,is_admin',
+    'user_id,email,approved,admin',
+    'user_id,email,approved,role',
+    '*'
+  ];
 
-  const response = await fetch(url, {
-    headers: {
-      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-      Accept: 'application/json'
+  for (const select of selectAttempts) {
+    const url = new URL(`${getSupabaseUrl()}/rest/v1/approved_users`);
+    url.searchParams.set('select', select);
+    url.searchParams.set('user_id', `eq.${userId}`);
+    url.searchParams.set('limit', '1');
+
+    const response = await fetch(url, {
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        Accept: 'application/json'
+      }
+    });
+
+    const text = await response.text();
+    let rows = [];
+    try {
+      rows = text ? JSON.parse(text) : [];
+    } catch {
+      rows = [];
     }
-  });
 
-  const text = await response.text();
-  let rows = [];
-  try {
-    rows = text ? JSON.parse(text) : [];
-  } catch {
-    rows = [];
+    if (response.ok) {
+      return {
+        ok: true,
+        status: response.status,
+        row: rows[0] || null,
+        text,
+        select
+      };
+    }
+
+    if (!/column approved_users\./i.test(text)) {
+      return {
+        ok: false,
+        status: response.status,
+        row: null,
+        text,
+        select
+      };
+    }
   }
 
   return {
-    ok: response.ok,
-    status: response.status,
-    row: rows[0] || null,
-    text
+    ok: false,
+    status: 500,
+    row: null,
+    text: 'Could not query approved_users with any supported admin column shape.',
+    select: null
   };
 }
 
