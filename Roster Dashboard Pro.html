@@ -729,6 +729,17 @@
     let approvalRows = [];
     let persistQueue = Promise.resolve();
 
+    function getAppRedirectUrl() {
+      const url = new URL(window.location.href);
+      url.hash = '';
+      url.search = '';
+      if (!/Roster%20Dashboard%20Pro\.html$/i.test(url.pathname) && !/Roster Dashboard Pro\.html$/i.test(url.pathname)) {
+        const basePath = url.pathname.endsWith('/') ? url.pathname : `${url.pathname}/`;
+        url.pathname = `${basePath}Roster%20Dashboard%20Pro.html`.replace(/\/{2,}/g, '/');
+      }
+      return url.toString();
+    }
+
     function setStatusMessage(element, message = '', tone = 'info') {
       if (!element) return;
       element.dataset.tone = tone;
@@ -775,7 +786,13 @@
     signupBtn.addEventListener('click', async () => {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      const { error } = await supabaseClient.auth.signUp({ email, password });
+      const { error } = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: getAppRedirectUrl()
+        }
+      });
       if (error) setStatusMessage(authMessage, error.message, 'error');
       else setStatusMessage(authMessage, 'Check your email for confirmation, then wait for an admin to approve your account.', 'success');
     });

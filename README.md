@@ -41,6 +41,13 @@ where email = 'person@example.com';
 
 After that, that admin can sign into the app, approve other users from the approvals panel, and edit the shared roster for everyone else. Approved non-admin users will see the same roster in read-only mode.
 
+If email confirmation is enabled in Supabase Auth, add your exact live app page URL to Supabase `Authentication` -> `URL Configuration` -> `Redirect URLs`.
+For this project, prefer the full app page URL, for example:
+
+- `https://your-site.netlify.app/Roster%20Dashboard%20Pro.html`
+
+instead of relying only on the site root redirect.
+
 ## Security notes
 
 - The frontend uses the Supabase anon public key only.
