@@ -407,6 +407,128 @@
       .email-grid { grid-template-columns: 1fr; }
       .email-actions { min-width: 0; }
     }
+    @media (max-width: 760px) {
+      .wrap { padding: 12px; }
+      .topbar { gap: 12px; margin-bottom: 12px; }
+      .panel { border-radius: 18px; }
+      .hero {
+        min-height: auto;
+        padding: 18px;
+        align-items: flex-start;
+      }
+      .hero-copy { max-width: 100%; padding-right: 56px; }
+      .hero h1 { font-size: 1.5rem; line-height: 1.15; }
+      .hero-cow {
+        right: 14px;
+        top: 16px;
+        transform: rotate(-6deg);
+        font-size: 3.6rem;
+      }
+      #logoutBtn {
+        top: 14px !important;
+        right: 14px !important;
+        padding: 8px 10px;
+      }
+      .controls,
+      .editor,
+      .calendar-panel { padding: 14px; }
+      .control-grow,
+      .button-row,
+      .toolbar-left,
+      .toolbar-right,
+      .small-button-row,
+      .approval-actions {
+        width: 100%;
+      }
+      .button-row,
+      .toolbar-left,
+      .toolbar-right,
+      .small-button-row {
+        gap: 8px;
+      }
+      .button-row button,
+      .toolbar-right button,
+      .small-button-row button,
+      .approval-actions button {
+        width: 100%;
+      }
+      .month-year-picker,
+      .grid2,
+      .staff-manage {
+        grid-template-columns: 1fr;
+      }
+      .stats {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+      .stat { padding: 12px 14px; }
+      .stat .value { font-size: 1.3rem; }
+      .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .toolbar-left > div,
+      .toolbar-right > div {
+        width: 100%;
+      }
+      .weekday-row {
+        display: none;
+      }
+      .calendar-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .day.empty {
+        display: none;
+      }
+      .day {
+        min-height: auto;
+        padding: 12px;
+        border-radius: 14px;
+      }
+      .day-top {
+        align-items: center;
+      }
+      .day-num { font-size: 1.05rem; }
+      .day-sub { font-size: .78rem; }
+      .line {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: initial;
+      }
+      .chips,
+      .day-footer {
+        gap: 8px;
+      }
+      .editor {
+        position: static;
+      }
+    }
+    @media (max-width: 520px) {
+      body {
+        background:
+          radial-gradient(42% 22% at 10% 10%, rgba(23, 19, 17, 0.96) 0 54%, transparent 56%),
+          radial-gradient(36% 18% at 84% 12%, rgba(33, 27, 23, 0.92) 0 52%, transparent 54%),
+          linear-gradient(180deg, #f8f6ef 0%, #e7dfd2 100%);
+      }
+      .wrap { padding: 10px; }
+      .hero { padding: 16px; }
+      .hero-copy { padding-right: 42px; }
+      .hero h1 { font-size: 1.35rem; }
+      .hero-cow { font-size: 2.9rem; right: 12px; }
+      .stats {
+        grid-template-columns: 1fr;
+      }
+      input, select, textarea, button {
+        font-size: 16px;
+      }
+      .chip,
+      .tag,
+      .pill {
+        font-size: .76rem;
+      }
+    }
   </style>
 </head>
 <body>
