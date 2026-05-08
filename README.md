@@ -90,8 +90,6 @@ That function:
 
 Set these Netlify environment variables:
 
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `N8N_ROSTER_EMAIL_WEBHOOK_URL`
 - `N8N_ROSTER_EMAIL_WEBHOOK_SECRET`
@@ -102,6 +100,7 @@ Set these Netlify environment variables:
 Notes:
 
 - The service role key must only live in Netlify environment variables, never in the frontend.
+- `SUPABASE_URL` and `SUPABASE_ANON_KEY` are already public in the committed frontend config for this project, so the Netlify function can reuse those values without storing them as Netlify env vars.
 - If you keep using GitHub Pages for the app UI, this Netlify function path will not exist on that domain. The simplest setup is to deploy the same app on Netlify when you want email sending.
 - The recipients box supports multiple addresses separated by commas, semicolons, or new lines.
 
@@ -109,6 +108,7 @@ Notes:
 
 - Redeploy the Netlify site after adding or changing any environment variable. Function runtime env vars are not updated in old deploys.
 - Make sure the env vars are available to Netlify Functions, not only the build UI.
+- If Netlify secrets scanning fails because `SUPABASE_URL` or `SUPABASE_ANON_KEY` match values committed in the repo, remove those two env vars from Netlify. They are public values and are not required there for this project.
 - Check Netlify Function logs for the returned `stage` values:
   - `env_check`
   - `auth`

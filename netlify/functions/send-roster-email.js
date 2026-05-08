@@ -1,9 +1,18 @@
 const REQUIRED_ENV_VARS = [
-  'SUPABASE_URL',
-  'SUPABASE_ANON_KEY',
   'SUPABASE_SERVICE_ROLE_KEY',
   'N8N_ROSTER_EMAIL_WEBHOOK_URL'
 ];
+
+const PUBLIC_SUPABASE_URL = 'https://xqfxkbzmrxrfnbrcivbd.supabase.co';
+const PUBLIC_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZnhrYnptcnhyZm5icmNpdmJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxODkyODgsImV4cCI6MjA5MTc2NTI4OH0.VHEZ6Dmqu1Wor74Cyqg8QtsY9cCuXE4TxBmQt5Nq-m0';
+
+function getSupabaseUrl() {
+  return process.env.SUPABASE_URL || PUBLIC_SUPABASE_URL;
+}
+
+function getSupabaseAnonKey() {
+  return process.env.SUPABASE_ANON_KEY || PUBLIC_SUPABASE_ANON_KEY;
+}
 
 function log(stage, details = {}) {
   console.log(JSON.stringify({ stage, ...details }));
@@ -81,9 +90,9 @@ function isApprovedAdmin(row) {
 }
 
 async function getSupabaseUser(accessToken) {
-  const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+  const response = await fetch(`${getSupabaseUrl()}/auth/v1/user`, {
     headers: {
-      apikey: process.env.SUPABASE_ANON_KEY,
+      apikey: getSupabaseAnonKey(),
       Authorization: `Bearer ${accessToken}`
     }
   });
@@ -105,7 +114,7 @@ async function getSupabaseUser(accessToken) {
 }
 
 async function loadApprovalRow(userId) {
-  const url = new URL(`${process.env.SUPABASE_URL}/rest/v1/approved_users`);
+  const url = new URL(`${getSupabaseUrl()}/rest/v1/approved_users`);
   url.searchParams.set('select', 'user_id,email,approved,is_admin,admin,role');
   url.searchParams.set('user_id', `eq.${userId}`);
   url.searchParams.set('limit', '1');
@@ -169,7 +178,11 @@ exports.handler = async event => {
       details: missingEnv.join(', ')
     });
   }
-  log('env_checked', { configured: REQUIRED_ENV_VARS });
+  log('env_checked', {
+    configured: REQUIRED_ENV_VARS,
+    usingPublicSupabaseUrlFallback: !process.env.SUPABASE_URL,
+    usingPublicSupabaseAnonFallback: !process.env.SUPABASE_ANON_KEY
+  });
 
   const authHeader = event.headers.authorization || event.headers.Authorization || '';
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
