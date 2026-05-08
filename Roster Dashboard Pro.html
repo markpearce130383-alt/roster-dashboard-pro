@@ -1325,7 +1325,17 @@
         }
 
         if (!response.ok) {
-          throw new Error(payload?.error || 'Could not send the roster email.');
+          const stage = payload?.stage ? ` Stage: ${payload.stage}.` : '';
+          const status = payload?.status ? ` n8n webhook returned ${payload.status}.` : '';
+          const message = payload?.message || `Request failed with status ${response.status}.`;
+          const details = payload?.details ? ` Details: ${String(payload.details).slice(0, 220)}` : '';
+          console.error('Roster email proxy error', {
+            responseStatus: response.status,
+            payload,
+            includeNotes,
+            recipientCount: valid.length
+          });
+          throw new Error(`Could not send the roster email.${stage} ${message}${status}${details}`.replace(/\s+/g, ' ').trim());
         }
 
         setStatusMessage(
@@ -1334,7 +1344,7 @@
           'success'
         );
       } catch (error) {
-        console.error(error);
+        console.error('Roster email request failed', error);
         setStatusMessage(emailStatus, error.message || 'Could not send the roster email.', 'error');
       } finally {
         sendRosterEmailBtn.disabled = false;

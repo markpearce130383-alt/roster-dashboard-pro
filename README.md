@@ -104,3 +104,20 @@ Notes:
 - The service role key must only live in Netlify environment variables, never in the frontend.
 - If you keep using GitHub Pages for the app UI, this Netlify function path will not exist on that domain. The simplest setup is to deploy the same app on Netlify when you want email sending.
 - The recipients box supports multiple addresses separated by commas, semicolons, or new lines.
+
+## Email troubleshooting
+
+- Redeploy the Netlify site after adding or changing any environment variable. Function runtime env vars are not updated in old deploys.
+- Make sure the env vars are available to Netlify Functions, not only the build UI.
+- Check Netlify Function logs for the returned `stage` values:
+  - `env_check`
+  - `auth`
+  - `admin_check`
+  - `payload_validation`
+  - `forward_to_n8n`
+- If you are using the `n8n` test webhook URL, click `Listen for test event` before sending from the roster app.
+- If you are using the `n8n` production webhook URL, the workflow must be activated.
+- If `N8N_ROSTER_EMAIL_WEBHOOK_SECRET` is set in Netlify, it must exactly match whatever your `n8n` workflow expects from the `x-roster-webhook-secret` header.
+- If Netlify reports success but the email still does not arrive, check the `n8n` execution log and then the SMTP node output.
+- If the `n8n` workflow runs but email sending fails, verify your SMTP credentials, server, port, encryption mode, and sender address.
+- If the frontend says the user is not an approved admin, confirm the current user row in `approved_users` is both `approved = true` and admin via `is_admin = true`, `admin = true`, or `role = 'admin'`.
