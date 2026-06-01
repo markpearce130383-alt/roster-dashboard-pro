@@ -151,6 +151,35 @@ from auth.users
 on conflict (user_id) do update
 set email = excluded.email;
 
+-- Explicit Data API grants for current and future Supabase behavior.
+-- Existing projects keep older defaults for now, but new tables in public
+-- will require explicit grants to stay reachable via supabase-js/PostgREST.
+grant usage on schema public to authenticated, service_role;
+
+grant select, insert, update, delete
+on table public.approved_users,
+         public.rosters,
+         public.custom_staff,
+         public.colours
+to authenticated, service_role;
+
+grant execute
+on function public.is_admin(uuid),
+           public.is_approved(uuid)
+to authenticated, service_role;
+
+grant usage, select
+on all sequences in schema public
+to authenticated, service_role;
+
+alter default privileges for role postgres in schema public
+grant select, insert, update, delete on tables
+to authenticated, service_role;
+
+alter default privileges for role postgres in schema public
+grant usage, select on sequences
+to authenticated, service_role;
+
 alter table public.approved_users enable row level security;
 alter table public.rosters enable row level security;
 alter table public.custom_staff enable row level security;
@@ -373,6 +402,12 @@ order by name, updated_at desc nulls last, created_at desc nulls last, user_id;
 alter table public.shared_rosters enable row level security;
 alter table public.shared_custom_staff enable row level security;
 alter table public.shared_colours enable row level security;
+
+grant select, insert, update, delete
+on table public.shared_rosters,
+         public.shared_custom_staff,
+         public.shared_colours
+to authenticated, service_role;
 
 drop policy if exists "approved users can view shared rosters" on public.shared_rosters;
 create policy "approved users can view shared rosters"
